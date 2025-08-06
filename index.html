@@ -293,11 +293,10 @@
     </div>
 
     <!-- Firebase SDK -->
-    <script type="module">
-        // Import Firebase modules
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 
+    <script>
         // Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyAnqlWmB3YL4lqoy_YeE4mD3ELk-5sUW8Q",
@@ -310,31 +309,30 @@
         };
 
         // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+        let app, db;
+        let firebaseReady = false;
 
-        console.log("Firebase connected successfully!");
+        try {
+            app = firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            firebaseReady = true;
+            console.log("Firebase connected successfully!");
 
-        // Make Firebase functions available globally
-        window.db = db;
-        window.collection = collection;
-        window.addDoc = addDoc;
-        window.getDocs = getDocs;
-        window.doc = doc;
-        window.updateDoc = updateDoc;
-        window.deleteDoc = deleteDoc;
-        window.query = query;
-        window.orderBy = orderBy;
-        window.where = where;
-
-        // Set Firebase ready flag
-        window.firebaseReady = true;
-
-        // Trigger initial load if page is already loaded
-        if (document.readyState === 'complete') {
-            if (window.location.hash !== '#admin') {
-                loadPosts();
+            // Auto load posts if on public view
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function () {
+                    if (window.location.hash !== '#admin') {
+                        setTimeout(loadPosts, 500);
+                    }
+                });
+            } else {
+                if (window.location.hash !== '#admin') {
+                    setTimeout(loadPosts, 500);
+                }
             }
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+            firebaseReady = false;
         }
     </script>
 
@@ -423,79 +421,75 @@
             showAdminLogin();
         }
 
-        // Wait for Firebase to be ready
-        function waitForFirebase() {
-            return new Promise((resolve) => {
-                if (window.firebaseReady) {
-                    resolve();
-                } else {
-                    const checkFirebase = setInterval(() => {
-                        if (window.firebaseReady) {
-                            clearInterval(checkFirebase);
-                            resolve();
-                        }
-                    }, 100);
-                }
-            });
-        }
-
         // Firebase Functions
-        async function loadPosts() {
-            try {
-                await waitForFirebase();
+        function loadPosts() {
+            if (!firebaseReady || !db) {
+                console.log("Firebase not ready, retrying...");
+                setTimeout(loadPosts, 1000);
+                return;
+            }
 
+            try {
                 document.getElementById('loadingPosts').classList.remove('hidden');
                 document.getElementById('postsContainer').innerHTML = '';
                 document.getElementById('noPosts').classList.add('hidden');
 
-                const q = query(collection(db, 'posts'), where('status', '==', 'published'), orderBy('timestamp', 'desc'));
-                const querySnapshot = await getDocs(q);
+                db.collection('posts')
+                    .where('status', '==', 'published')
+                    .orderBy('timestamp', 'desc')
+                    .get()
+                    .then((querySnapshot) => {
+                        document.getElementById('loadingPosts').classList.add('hidden');
 
-                document.getElementById('loadingPosts').classList.add('hidden');
+                        if (querySnapshot.empty) {
+                            document.getElementById('noPosts').classList.remove('hidden');
+                            return;
+                        }
 
-                if (querySnapshot.empty) {
-                    document.getElementById('noPosts').classList.remove('hidden');
-                    return;
-                }
+                        const posts = [];
+                        querySnapshot.forEach((doc) => {
+                            posts.push({ id: doc.id, ...doc.data() });
+                        });
 
-                const posts = [];
-                querySnapshot.forEach((doc) => {
-                    posts.push({ id: doc.id, ...doc.data() });
-                });
-
-                const container = document.getElementById('postsContainer');
-                container.innerHTML = posts.map(post => `
-                    <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
-                        <header class="mb-4">
-                            <h2 class="text-2xl font-bold text-gray-900 mb-2">${post.title}</h2>
-                            <div class="flex items-center text-sm text-gray-500">
-                                <span class="mr-4">📅 ${post.date}</span>
-                                <span>🕐 ${post.time}</span>
-                            </div>
-                        </header>
-                        <div class="prose prose-lg max-w-none">
-                            <p class="text-gray-700 leading-relaxed">${post.content}</p>
-                        </div>
-                        <footer class="mt-6 pt-4 border-t border-gray-100">
-                            <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-4 text-sm text-gray-500">
-                                    <span class="flex items-center">
-                                        <span class="mr-1">👁️</span>
-                                        ${Math.floor(Math.random() * 100) + 20} বার দেখা হয়েছে
-                                    </span>
-                                </div>
-                                <div class="flex space-x-2">
-                                    <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                        👍 পছন্দ
-                                    </button>
-                                    <button class="text-green-600 hover:text-green-800 text-sm font-medium">
-                                        📤 শেয়ার
-                                    </button>
-                                </div>
-                            </div>
-                        </footer>
-                    </article>
-                `).join('');
+                        const container = document.getElementById('postsContainer');
+                        container.innerHTML = posts.map(post => `
+                          <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
+                              <header class="mb-4">
+                                  <h2 class="text-2xl font-bold text-gray-900 mb-2">${post.title}</h2>
+                                  <div class="flex items-center text-sm text-gray-500">
+                                      <span class="mr-4">📅 ${post.date}</span>
+                                      <span>🕐 ${post.time}</span>
+                                  </div>
+                              </header>
+                              <div class="prose prose-lg max-w-none">
+                                  <p class="text-gray-700 leading-relaxed">${post.content}</p>
+                              </div>
+                              <footer class="mt-6 pt-4 border-t border-gray-100">
+                                  <div class="flex items-center justify-between">
+                                      <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                          <span class="flex items-center">
+                                              <span class="mr-1">👁️</span>
+                                              ${Math.floor(Math.random() * 100) + 20} বার দেখা হয়েছে
+                                          </span>
+                                      </div>
+                                      <div class="flex space-x-2">
+                                          <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                              👍 পছন্দ
+                                          </button>
+                                          <button class="text-green-600 hover:text-green-800 text-sm font-medium">
+                                              📤 শেয়ার
+                                          </button>
+                                      </div>
+                                  </div>
+                              </footer>
+                          </article>
+                      `).join('');
+                    })
+                    .catch((error) => {
+                        console.error("Error loading posts:", error);
+                        document.getElementById('loadingPosts').classList.add('hidden');
+                        document.getElementById('noPosts').classList.remove('hidden');
+                    });
             } catch (error) {
                 console.error("Error loading posts:", error);
                 document.getElementById('loadingPosts').classList.add('hidden');
@@ -503,7 +497,7 @@
             }
         }
 
-        async function publishPost() {
+        function publishPost() {
             const title = document.getElementById('postTitle').value.trim();
             const content = document.getElementById('postContent').value.trim();
 
@@ -512,9 +506,12 @@
                 return;
             }
 
-            try {
-                await waitForFirebase();
+            if (!firebaseReady || !db) {
+                alert('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।');
+                return;
+            }
 
+            try {
                 const now = new Date();
                 const bengaliDate = now.toLocaleDateString('bn-BD');
                 const bengaliTime = now.toLocaleTimeString('bn-BD', {
@@ -532,20 +529,25 @@
                     timestamp: now
                 };
 
-                await addDoc(collection(db, 'posts'), newPost);
+                db.collection('posts').add(newPost)
+                    .then(() => {
+                        // Clear form
+                        document.getElementById('postTitle').value = '';
+                        document.getElementById('postContent').value = '';
 
-                // Clear form
-                document.getElementById('postTitle').value = '';
-                document.getElementById('postContent').value = '';
-
-                alert('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉');
+                        alert('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉');
+                    })
+                    .catch((error) => {
+                        console.error("Error publishing post:", error);
+                        alert('পোস্ট প্রকাশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                    });
             } catch (error) {
                 console.error("Error publishing post:", error);
                 alert('পোস্ট প্রকাশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
             }
         }
 
-        async function saveDraft() {
+        function saveDraft() {
             const title = document.getElementById('postTitle').value.trim();
             const content = document.getElementById('postContent').value.trim();
 
@@ -554,9 +556,12 @@
                 return;
             }
 
-            try {
-                await waitForFirebase();
+            if (!firebaseReady || !db) {
+                alert('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।');
+                return;
+            }
 
+            try {
                 const now = new Date();
                 const bengaliDate = now.toLocaleDateString('bn-BD');
                 const bengaliTime = now.toLocaleTimeString('bn-BD', {
@@ -574,15 +579,20 @@
                     timestamp: now
                 };
 
-                await addDoc(collection(db, 'posts'), newDraft);
+                db.collection('posts').add(newDraft)
+                    .then(() => {
+                        updateDraftCount();
 
-                updateDraftCount();
+                        // Clear form
+                        document.getElementById('postTitle').value = '';
+                        document.getElementById('postContent').value = '';
 
-                // Clear form
-                document.getElementById('postTitle').value = '';
-                document.getElementById('postContent').value = '';
-
-                alert('ড্রাফট সফলভাবে সেভ হয়েছে! 💾');
+                        alert('ড্রাফট সফলভাবে সেভ হয়েছে! 💾');
+                    })
+                    .catch((error) => {
+                        console.error("Error saving draft:", error);
+                        alert('ড্রাফট সেভে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                    });
             } catch (error) {
                 console.error("Error saving draft:", error);
                 alert('ড্রাফট সেভে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
@@ -615,46 +625,54 @@
             }
         }
 
-        async function loadAdminPosts() {
+        function loadAdminPosts() {
+            if (!firebaseReady || !db) return;
+
             try {
-                await waitForFirebase();
+                db.collection('posts')
+                    .where('status', '==', 'published')
+                    .orderBy('timestamp', 'desc')
+                    .get()
+                    .then((querySnapshot) => {
+                        const container = document.getElementById('adminPostsList');
 
-                const q = query(collection(db, 'posts'), where('status', '==', 'published'), orderBy('timestamp', 'desc'));
-                const querySnapshot = await getDocs(q);
+                        if (querySnapshot.empty) {
+                            container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
+                            return;
+                        }
 
-                const container = document.getElementById('adminPostsList');
+                        const posts = [];
+                        querySnapshot.forEach((doc) => {
+                            posts.push({ id: doc.id, ...doc.data() });
+                        });
 
-                if (querySnapshot.empty) {
-                    container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
-                    return;
-                }
-
-                const posts = [];
-                querySnapshot.forEach((doc) => {
-                    posts.push({ id: doc.id, ...doc.data() });
-                });
-
-                container.innerHTML = posts.map(post => `
-                    <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <h4 class="font-semibold text-gray-900 mb-2">${post.title}</h4>
-                                <p class="text-gray-600 text-sm mb-2">${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
-                                <div class="text-xs text-gray-500">
-                                    📅 ${post.date} • 🕐 ${post.time}
-                                </div>
-                            </div>
-                            <div class="flex gap-2 ml-4">
-                                <button onclick="editPost('${post.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                    ✏️ এডিট
-                                </button>
-                                <button onclick="deletePost('${post.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                    🗑️ ডিলিট
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+                        container.innerHTML = posts.map(post => `
+                          <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
+                              <div class="flex justify-between items-start">
+                                  <div class="flex-1">
+                                      <h4 class="font-semibold text-gray-900 mb-2">${post.title}</h4>
+                                      <p class="text-gray-600 text-sm mb-2">${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
+                                      <div class="text-xs text-gray-500">
+                                          📅 ${post.date} • 🕐 ${post.time}
+                                      </div>
+                                  </div>
+                                  <div class="flex gap-2 ml-4">
+                                      <button onclick="editPost('${post.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                          ✏️ এডিট
+                                      </button>
+                                      <button onclick="deletePost('${post.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                          🗑️ ডিলিট
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
+                      `).join('');
+                    })
+                    .catch((error) => {
+                        console.error("Error loading admin posts:", error);
+                        const container = document.getElementById('adminPostsList');
+                        container.innerHTML = '<p class="text-red-500 text-center py-8">পোস্ট লোড করতে সমস্যা হয়েছে</p>';
+                    });
             } catch (error) {
                 console.error("Error loading admin posts:", error);
                 const container = document.getElementById('adminPostsList');
@@ -662,49 +680,57 @@
             }
         }
 
-        async function loadDrafts() {
+        function loadDrafts() {
+            if (!firebaseReady || !db) return;
+
             try {
-                await waitForFirebase();
+                db.collection('posts')
+                    .where('status', '==', 'draft')
+                    .orderBy('timestamp', 'desc')
+                    .get()
+                    .then((querySnapshot) => {
+                        const container = document.getElementById('draftsList');
 
-                const q = query(collection(db, 'posts'), where('status', '==', 'draft'), orderBy('timestamp', 'desc'));
-                const querySnapshot = await getDocs(q);
+                        if (querySnapshot.empty) {
+                            container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
+                            return;
+                        }
 
-                const container = document.getElementById('draftsList');
+                        const drafts = [];
+                        querySnapshot.forEach((doc) => {
+                            drafts.push({ id: doc.id, ...doc.data() });
+                        });
 
-                if (querySnapshot.empty) {
-                    container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
-                    return;
-                }
-
-                const drafts = [];
-                querySnapshot.forEach((doc) => {
-                    drafts.push({ id: doc.id, ...doc.data() });
-                });
-
-                container.innerHTML = drafts.map(draft => `
-                    <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200">
-                        <div class="flex justify-between items-start">
-                            <div class="flex-1">
-                                <h4 class="font-semibold text-gray-900 mb-2">${draft.title}</h4>
-                                <p class="text-gray-600 text-sm mb-2">${draft.content ? draft.content.substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'কোনো কন্টেন্ট নেই'}</p>
-                                <div class="text-xs text-gray-500">
-                                    📅 ${draft.date} • 🕐 ${draft.time} • 📄 ড্রাফট
-                                </div>
-                            </div>
-                            <div class="flex gap-2 ml-4">
-                                <button onclick="editDraft('${draft.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                    ✏️ এডিট
-                                </button>
-                                <button onclick="publishDraft('${draft.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                    📝 পাবলিশ
-                                </button>
-                                <button onclick="deleteDraft('${draft.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                    🗑️ ডিলিট
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
+                        container.innerHTML = drafts.map(draft => `
+                          <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200">
+                              <div class="flex justify-between items-start">
+                                  <div class="flex-1">
+                                      <h4 class="font-semibold text-gray-900 mb-2">${draft.title}</h4>
+                                      <p class="text-gray-600 text-sm mb-2">${draft.content ? draft.content.substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'কোনো কন্টেন্ট নেই'}</p>
+                                      <div class="text-xs text-gray-500">
+                                          📅 ${draft.date} • 🕐 ${draft.time} • 📄 ড্রাফট
+                                      </div>
+                                  </div>
+                                  <div class="flex gap-2 ml-4">
+                                      <button onclick="editDraft('${draft.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                          ✏️ এডিট
+                                      </button>
+                                      <button onclick="publishDraft('${draft.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                          📝 পাবলিশ
+                                      </button>
+                                      <button onclick="deleteDraft('${draft.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                          🗑️ ডিলিট
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
+                      `).join('');
+                    })
+                    .catch((error) => {
+                        console.error("Error loading drafts:", error);
+                        const container = document.getElementById('draftsList');
+                        container.innerHTML = '<p class="text-red-500 text-center py-8">ড্রাফট লোড করতে সমস্যা হয়েছে</p>';
+                    });
             } catch (error) {
                 console.error("Error loading drafts:", error);
                 const container = document.getElementById('draftsList');
@@ -712,48 +738,69 @@
             }
         }
 
-        async function updateDraftCount() {
-            try {
-                await waitForFirebase();
+        function updateDraftCount() {
+            if (!firebaseReady || !db) return;
 
-                const q = query(collection(db, 'posts'), where('status', '==', 'draft'));
-                const querySnapshot = await getDocs(q);
-                document.getElementById('draftCount').textContent = querySnapshot.size;
+            try {
+                db.collection('posts')
+                    .where('status', '==', 'draft')
+                    .get()
+                    .then((querySnapshot) => {
+                        document.getElementById('draftCount').textContent = querySnapshot.size;
+                    })
+                    .catch((error) => {
+                        console.error("Error updating draft count:", error);
+                        document.getElementById('draftCount').textContent = '0';
+                    });
             } catch (error) {
                 console.error("Error updating draft count:", error);
                 document.getElementById('draftCount').textContent = '0';
             }
         }
 
-        async function editPost(postId) {
+        function editPost(postId) {
+            if (!firebaseReady || !db) return;
+
             try {
-                const postDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', postId)));
-                if (postDoc.empty) return;
+                db.collection('posts').doc(postId).get()
+                    .then((doc) => {
+                        if (doc.exists) {
+                            const post = { id: postId, ...doc.data() };
 
-                const post = { id: postId, ...postDoc.docs[0].data() };
-
-                editingPostId = postId;
-                editingDraftId = null;
-                document.getElementById('editTitle').value = post.title;
-                document.getElementById('editContent').value = post.content;
-                document.getElementById('editModal').classList.remove('hidden');
+                            editingPostId = postId;
+                            editingDraftId = null;
+                            document.getElementById('editTitle').value = post.title;
+                            document.getElementById('editContent').value = post.content;
+                            document.getElementById('editModal').classList.remove('hidden');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error loading post for edit:", error);
+                    });
             } catch (error) {
                 console.error("Error loading post for edit:", error);
             }
         }
 
-        async function editDraft(draftId) {
+        function editDraft(draftId) {
+            if (!firebaseReady || !db) return;
+
             try {
-                const draftDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', draftId)));
-                if (draftDoc.empty) return;
+                db.collection('posts').doc(draftId).get()
+                    .then((doc) => {
+                        if (doc.exists) {
+                            const draft = { id: draftId, ...doc.data() };
 
-                const draft = { id: draftId, ...draftDoc.docs[0].data() };
-
-                editingDraftId = draftId;
-                editingPostId = null;
-                document.getElementById('editTitle').value = draft.title;
-                document.getElementById('editContent').value = draft.content;
-                document.getElementById('editModal').classList.remove('hidden');
+                            editingDraftId = draftId;
+                            editingPostId = null;
+                            document.getElementById('editTitle').value = draft.title;
+                            document.getElementById('editContent').value = draft.content;
+                            document.getElementById('editModal').classList.remove('hidden');
+                        }
+                    })
+                    .catch((error) => {
+                        console.error("Error loading draft for edit:", error);
+                    });
             } catch (error) {
                 console.error("Error loading draft for edit:", error);
             }
@@ -840,12 +887,17 @@
             return { date: bengaliDate, time: bengaliTime };
         }
 
-        async function saveEditedPost() {
+        function saveEditedPost() {
             const title = document.getElementById('editTitle').value.trim();
             const content = document.getElementById('editContent').value.trim();
 
             if (!title || !content) {
                 alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
+                return;
+            }
+
+            if (!firebaseReady || !db) {
+                alert('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।');
                 return;
             }
 
@@ -896,25 +948,39 @@
 
                 if (editingPostId) {
                     // Editing a published post
-                    await updateDoc(doc(db, 'posts', editingPostId), updateData);
-                    loadAdminPosts();
-                    alert('পোস্ট সফলভাবে আপডেট হয়েছে! ✅');
+                    db.collection('posts').doc(editingPostId).update(updateData)
+                        .then(() => {
+                            loadAdminPosts();
+                            alert('পোস্ট সফলভাবে আপডেট হয়েছে! ✅');
+                            closeEditModal();
+                        })
+                        .catch((error) => {
+                            console.error("Error updating post:", error);
+                            alert('আপডেটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                        });
                 } else if (editingDraftId) {
                     // Editing a draft - remove the "(সম্পাদিত)" part for drafts
                     updateData.date = finalDate.replace(' (সম্পাদিত)', '');
-                    await updateDoc(doc(db, 'posts', editingDraftId), updateData);
-                    loadDrafts();
-                    alert('ড্রাফট সফলভাবে আপডেট হয়েছে! ✅');
+                    db.collection('posts').doc(editingDraftId).update(updateData)
+                        .then(() => {
+                            loadDrafts();
+                            alert('ড্রাফট সফলভাবে আপডেট হয়েছে! ✅');
+                            closeEditModal();
+                        })
+                        .catch((error) => {
+                            console.error("Error updating draft:", error);
+                            alert('আপডেটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                        });
                 }
-
-                closeEditModal();
             } catch (error) {
                 console.error("Error updating post:", error);
                 alert('আপডেটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
             }
         }
 
-        async function publishDraft(draftId) {
+        function publishDraft(draftId) {
+            if (!firebaseReady || !db) return;
+
             try {
                 const now = new Date();
                 const updateData = {
@@ -928,23 +994,36 @@
                     timestamp: now
                 };
 
-                await updateDoc(doc(db, 'posts', draftId), updateData);
-
-                updateDraftCount();
-                loadDrafts();
-                alert('ড্রাফট সফলভাবে পাবলিশ হয়েছে! 🎉');
+                db.collection('posts').doc(draftId).update(updateData)
+                    .then(() => {
+                        updateDraftCount();
+                        loadDrafts();
+                        alert('ড্রাফট সফলভাবে পাবলিশ হয়েছে! 🎉');
+                    })
+                    .catch((error) => {
+                        console.error("Error publishing draft:", error);
+                        alert('পাবলিশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                    });
             } catch (error) {
                 console.error("Error publishing draft:", error);
                 alert('পাবলিশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
             }
         }
 
-        async function deletePost(postId) {
+        function deletePost(postId) {
+            if (!firebaseReady || !db) return;
+
             if (confirm('এই পোস্টটি কি সত্যিই ডিলিট করতে চান?')) {
                 try {
-                    await deleteDoc(doc(db, 'posts', postId));
-                    loadAdminPosts();
-                    alert('পোস্ট ডিলিট হয়েছে! 🗑️');
+                    db.collection('posts').doc(postId).delete()
+                        .then(() => {
+                            loadAdminPosts();
+                            alert('পোস্ট ডিলিট হয়েছে! 🗑️');
+                        })
+                        .catch((error) => {
+                            console.error("Error deleting post:", error);
+                            alert('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                        });
                 } catch (error) {
                     console.error("Error deleting post:", error);
                     alert('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
@@ -952,13 +1031,21 @@
             }
         }
 
-        async function deleteDraft(draftId) {
+        function deleteDraft(draftId) {
+            if (!firebaseReady || !db) return;
+
             if (confirm('এই ড্রাফটটি কি সত্যিই ডিলিট করতে চান?')) {
                 try {
-                    await deleteDoc(doc(db, 'posts', draftId));
-                    updateDraftCount();
-                    loadDrafts();
-                    alert('ড্রাফট ডিলিট হয়েছে! 🗑️');
+                    db.collection('posts').doc(draftId).delete()
+                        .then(() => {
+                            updateDraftCount();
+                            loadDrafts();
+                            alert('ড্রাফট ডিলিট হয়েছে! 🗑️');
+                        })
+                        .catch((error) => {
+                            console.error("Error deleting draft:", error);
+                            alert('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                        });
                 } catch (error) {
                     console.error("Error deleting draft:", error);
                     alert('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
@@ -987,7 +1074,7 @@
             checkUrlHash();
         });
     </script>
-    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96ae0223a10e814e',t:'MTc1NDQ3Nzc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96ae1277415371f4',t:'MTc1NDQ3ODQ2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>
