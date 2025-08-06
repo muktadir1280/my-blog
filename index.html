@@ -188,6 +188,10 @@
                         class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
                         📄 ড্রাফট (<span id="draftCount">0</span>)
                     </button>
+                    <button onclick="showTab('debug')" id="debugTab"
+                        class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
+                        🔧 ডিবাগ
+                    </button>
                 </div>
 
                 <!-- New Post Tab -->
@@ -198,14 +202,26 @@
                     <textarea id="postContent" placeholder="আপনার পোস্ট এখানে লিখুন..."
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4 h-40 resize-none"></textarea>
                     <div class="flex gap-3">
-                        <button onclick="publishPost()"
+                        <button id="publishBtn" onclick="publishPost()"
                             class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
                             📝 পোস্ট করুন
                         </button>
-                        <button onclick="saveDraft()"
+                        <button id="draftBtn" onclick="saveDraft()"
                             class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors">
                             💾 ড্রাফট সেভ করুন
                         </button>
+                    </div>
+
+                    <!-- Success/Error Messages -->
+                    <div id="messageContainer" class="mt-4 hidden">
+                        <div id="successMessage"
+                            class="hidden bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                            <span id="successText"></span>
+                        </div>
+                        <div id="errorMessage"
+                            class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                            <span id="errorText"></span>
+                        </div>
                     </div>
                 </div>
 
@@ -222,6 +238,48 @@
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">ড্রাফট পোস্টসমূহ</h3>
                     <div id="draftsList">
                         <!-- Drafts will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Debug Tab -->
+                <div id="debugContent" class="hidden">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">🔧 ডিবাগ তথ্য</h3>
+                    <div class="bg-gray-100 rounded-lg p-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div>
+                                <strong>Firebase Status:</strong>
+                                <span id="firebaseStatus" class="ml-2"></span>
+                            </div>
+                            <div>
+                                <strong>Database Connection:</strong>
+                                <span id="dbStatus" class="ml-2"></span>
+                            </div>
+                            <div>
+                                <strong>Current Time:</strong>
+                                <span id="currentTime" class="ml-2"></span>
+                            </div>
+                            <div>
+                                <strong>Page Load Time:</strong>
+                                <span id="loadTime" class="ml-2"></span>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <button onclick="testFirebaseConnection()"
+                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">
+                                🔄 Firebase টেস্ট করুন
+                            </button>
+                            <button onclick="clearConsole()"
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded text-sm ml-2">
+                                🗑️ কনসোল ক্লিয়ার করুন
+                            </button>
+                        </div>
+                        <div class="mt-4">
+                            <h4 class="font-medium mb-2">Console Log:</h4>
+                            <div id="debugConsole"
+                                class="bg-black text-green-400 p-3 rounded text-xs font-mono h-32 overflow-y-auto">
+                                <!-- Debug messages will appear here -->
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -343,6 +401,46 @@
         let editingDraftId = null;
         let currentUserId = '';
 
+        // Message display functions
+        function showSuccessMessage(message) {
+            document.getElementById('messageContainer').classList.remove('hidden');
+            document.getElementById('successMessage').classList.remove('hidden');
+            document.getElementById('errorMessage').classList.add('hidden');
+            document.getElementById('successText').textContent = message;
+
+            // Auto hide after 5 seconds
+            setTimeout(() => {
+                document.getElementById('messageContainer').classList.add('hidden');
+                document.getElementById('successMessage').classList.add('hidden');
+            }, 5000);
+        }
+
+        function showErrorMessage(message) {
+            document.getElementById('messageContainer').classList.remove('hidden');
+            document.getElementById('errorMessage').classList.remove('hidden');
+            document.getElementById('successMessage').classList.add('hidden');
+            document.getElementById('errorText').textContent = message;
+
+            // Auto hide after 8 seconds
+            setTimeout(() => {
+                document.getElementById('messageContainer').classList.add('hidden');
+                document.getElementById('errorMessage').classList.add('hidden');
+            }, 8000);
+        }
+
+        function setButtonLoading(buttonId, isLoading, originalText) {
+            const button = document.getElementById(buttonId);
+            if (isLoading) {
+                button.disabled = true;
+                button.innerHTML = '<div class="loading mr-2"></div> প্রসেসিং...';
+                button.classList.add('opacity-75', 'cursor-not-allowed');
+            } else {
+                button.disabled = false;
+                button.innerHTML = originalText;
+                button.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+
         // Check URL hash on page load
         function checkUrlHash() {
             if (window.location.hash === '#admin') {
@@ -372,6 +470,14 @@
             document.getElementById('publicView').classList.add('hidden');
             document.getElementById('adminDashboard').classList.remove('hidden');
             window.location.hash = 'admin';
+
+            // Check Firebase connection status
+            if (!firebaseReady || !db) {
+                showErrorMessage('⚠️ Firebase সংযোগে সমস্যা! পেজ রিফ্রেশ করুন বা কিছুক্ষণ পর চেষ্টা করুন।');
+            } else {
+                showSuccessMessage('✅ Firebase সংযোগ সফল! এখন পোস্ট করতে পারবেন।');
+            }
+
             updateDraftCount();
         }
 
@@ -502,14 +608,17 @@
             const content = document.getElementById('postContent').value.trim();
 
             if (!title || !content) {
-                alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
+                showErrorMessage('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
                 return;
             }
 
             if (!firebaseReady || !db) {
-                alert('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।');
+                showErrorMessage('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।');
                 return;
             }
+
+            // Show loading state
+            setButtonLoading('publishBtn', true, '📝 পোস্ট করুন');
 
             try {
                 const now = new Date();
@@ -526,24 +635,39 @@
                     date: bengaliDate,
                     time: bengaliTime,
                     status: 'published',
-                    timestamp: now
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
+                console.log('Publishing post:', newPost);
+
                 db.collection('posts').add(newPost)
-                    .then(() => {
+                    .then((docRef) => {
+                        console.log('Post published with ID:', docRef.id);
+
                         // Clear form
                         document.getElementById('postTitle').value = '';
                         document.getElementById('postContent').value = '';
 
-                        alert('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉');
+                        // Reset button
+                        setButtonLoading('publishBtn', false, '📝 পোস্ট করুন');
+
+                        // Show success message
+                        showSuccessMessage('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉 পাবলিক সাইটে দেখতে পারবেন।');
+
+                        // Auto refresh manage posts if that tab is active
+                        if (!document.getElementById('managePostsContent').classList.contains('hidden')) {
+                            setTimeout(loadAdminPosts, 1000);
+                        }
                     })
                     .catch((error) => {
                         console.error("Error publishing post:", error);
-                        alert('পোস্ট প্রকাশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                        setButtonLoading('publishBtn', false, '📝 পোস্ট করুন');
+                        showErrorMessage('পোস্ট প্রকাশে সমস্যা হয়েছে: ' + error.message);
                     });
             } catch (error) {
                 console.error("Error publishing post:", error);
-                alert('পোস্ট প্রকাশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                setButtonLoading('publishBtn', false, '📝 পোস্ট করুন');
+                showErrorMessage('পোস্ট প্রকাশে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
@@ -552,14 +676,17 @@
             const content = document.getElementById('postContent').value.trim();
 
             if (!title && !content) {
-                alert('অন্তত শিরোনাম বা কন্টেন্ট একটি লিখতে হবে!');
+                showErrorMessage('অন্তত শিরোনাম বা কন্টেন্ট একটি লিখতে হবে!');
                 return;
             }
 
             if (!firebaseReady || !db) {
-                alert('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।');
+                showErrorMessage('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।');
                 return;
             }
+
+            // Show loading state
+            setButtonLoading('draftBtn', true, '💾 ড্রাফট সেভ করুন');
 
             try {
                 const now = new Date();
@@ -576,26 +703,41 @@
                     date: bengaliDate,
                     time: bengaliTime,
                     status: 'draft',
-                    timestamp: now
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
+                console.log('Saving draft:', newDraft);
+
                 db.collection('posts').add(newDraft)
-                    .then(() => {
+                    .then((docRef) => {
+                        console.log('Draft saved with ID:', docRef.id);
+
                         updateDraftCount();
 
                         // Clear form
                         document.getElementById('postTitle').value = '';
                         document.getElementById('postContent').value = '';
 
-                        alert('ড্রাফট সফলভাবে সেভ হয়েছে! 💾');
+                        // Reset button
+                        setButtonLoading('draftBtn', false, '💾 ড্রাফট সেভ করুন');
+
+                        // Show success message
+                        showSuccessMessage('ড্রাফট সফলভাবে সেভ হয়েছে! 💾 ড্রাফট ট্যাবে দেখতে পারবেন।');
+
+                        // Auto refresh drafts if that tab is active
+                        if (!document.getElementById('draftsContent').classList.contains('hidden')) {
+                            setTimeout(loadDrafts, 1000);
+                        }
                     })
                     .catch((error) => {
                         console.error("Error saving draft:", error);
-                        alert('ড্রাফট সেভে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                        setButtonLoading('draftBtn', false, '💾 ড্রাফট সেভ করুন');
+                        showErrorMessage('ড্রাফট সেভে সমস্যা হয়েছে: ' + error.message);
                     });
             } catch (error) {
                 console.error("Error saving draft:", error);
-                alert('ড্রাফট সেভে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                setButtonLoading('draftBtn', false, '💾 ড্রাফট সেভ করুন');
+                showErrorMessage('ড্রাফট সেভে সমস্যা হয়েছে: ' + error.message);
             }
         }
 
@@ -604,11 +746,13 @@
             document.getElementById('newPostContent').classList.add('hidden');
             document.getElementById('managePostsContent').classList.add('hidden');
             document.getElementById('draftsContent').classList.add('hidden');
+            document.getElementById('debugContent').classList.add('hidden');
 
             // Reset all tab buttons
             document.getElementById('newPostTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap';
             document.getElementById('managePostsTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
             document.getElementById('draftsTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
+            document.getElementById('debugTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
 
             // Show selected tab
             if (tabName === 'newPost') {
@@ -622,7 +766,76 @@
                 document.getElementById('draftsContent').classList.remove('hidden');
                 document.getElementById('draftsTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap';
                 loadDrafts();
+            } else if (tabName === 'debug') {
+                document.getElementById('debugContent').classList.remove('hidden');
+                document.getElementById('debugTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap';
+                updateDebugInfo();
             }
+        }
+
+        // Debug functions
+        function updateDebugInfo() {
+            document.getElementById('firebaseStatus').textContent = firebaseReady ? '✅ Connected' : '❌ Disconnected';
+            document.getElementById('dbStatus').textContent = db ? '✅ Ready' : '❌ Not Ready';
+            document.getElementById('currentTime').textContent = new Date().toLocaleString('bn-BD');
+            document.getElementById('loadTime').textContent = new Date().toLocaleString('bn-BD');
+
+            logToConsole('Debug info updated');
+        }
+
+        function logToConsole(message) {
+            const console = document.getElementById('debugConsole');
+            const timestamp = new Date().toLocaleTimeString('bn-BD');
+            console.innerHTML += `[${timestamp}] ${message}\n`;
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('debugConsole').innerHTML = '';
+            logToConsole('Console cleared');
+        }
+
+        function testFirebaseConnection() {
+            logToConsole('Testing Firebase connection...');
+
+            if (!firebaseReady || !db) {
+                logToConsole('❌ Firebase not initialized');
+                showErrorMessage('Firebase সংযোগ নেই!');
+                return;
+            }
+
+            // Test write operation
+            const testData = {
+                test: true,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                message: 'Connection test'
+            };
+
+            db.collection('test').add(testData)
+                .then((docRef) => {
+                    logToConsole('✅ Write test successful: ' + docRef.id);
+
+                    // Test read operation
+                    return db.collection('test').doc(docRef.id).get();
+                })
+                .then((doc) => {
+                    if (doc.exists) {
+                        logToConsole('✅ Read test successful');
+
+                        // Clean up test document
+                        return db.collection('test').doc(doc.id).delete();
+                    } else {
+                        logToConsole('❌ Read test failed');
+                    }
+                })
+                .then(() => {
+                    logToConsole('✅ Cleanup successful');
+                    showSuccessMessage('Firebase connection test successful! 🎉');
+                })
+                .catch((error) => {
+                    logToConsole('❌ Firebase test failed: ' + error.message);
+                    showErrorMessage('Firebase test failed: ' + error.message);
+                });
         }
 
         function loadAdminPosts() {
@@ -1074,7 +1287,7 @@
             checkUrlHash();
         });
     </script>
-    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96ae1277415371f4',t:'MTc1NDQ3ODQ2My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96ae1c9056c32a54',t:'MTc1NDQ3ODg3Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>
