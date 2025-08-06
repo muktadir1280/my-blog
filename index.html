@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>মুক্তাদিরের ব্যক্তিগত ব্লগ</title>
+    <title>আমার ব্যক্তিগত ব্লগ</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap');
@@ -20,10 +20,6 @@
         .post-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .admin-panel {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         .fade-in {
@@ -46,120 +42,21 @@
             min-height: 100vh;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
-            padding: 16px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            transform: translateX(100%);
-            transition: transform 0.3s ease;
-        }
-
-        .notification.show {
-            transform: translateX(0);
-        }
-
-        .notification.success {
-            background: #10b981;
-            color: white;
-        }
-
-        .notification.error {
-            background: #ef4444;
-            color: white;
-        }
     </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
 </head>
 
 <body class="bg-gray-50 min-h-screen">
-    <!-- Notification Container -->
-    <div id="notificationContainer"></div>
 
-    <!-- Settings Modal -->
-    <div id="settingsModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-            <h3 class="text-xl font-semibold text-gray-800 mb-4">⚙️ ব্লগ সেটিংস</h3>
-
-            <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">ব্লগের নাম</label>
-                    <input type="text" id="blogTitle" value="মুক্তাদিরের ব্যক্তিগত ব্লগ"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">ব্লগের বিবরণ</label>
-                    <input type="text" id="blogDescription" value="আমার চিন্তাভাবনা ও অভিজ্ঞতা"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">অ্যাডমিন ইউজারনেম</label>
-                    <input type="text" id="adminUsername" value="admin"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">অ্যাডমিন পাসওয়ার্ড</label>
-                    <input type="password" id="adminPass" value="admin123"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                </div>
-
-                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                    <h4 class="font-medium text-yellow-800 mb-2">⚠️ গুরুত্বপূর্ণ নোট</h4>
-                    <p class="text-sm text-yellow-700">
-                        সেটিংস পরিবর্তন করার পর পেজ রিফ্রেশ করুন। এই সেটিংস শুধুমাত্র বর্তমান সেশনের জন্য কার্যকর।
-                    </p>
-                </div>
-            </div>
-
-            <div class="flex gap-3 mt-6">
-                <button onclick="saveSettings()"
-                    class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors">
-                    💾 সেভ করুন
-                </button>
-                <button onclick="closeSettingsModal()"
-                    class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-                    বাতিল
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Admin Login Page -->
+    <!-- Admin Login Page (Hidden by default) -->
     <div id="adminLoginPage" class="hidden login-container flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
             <div class="text-center mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">অ্যাডমিন লগইন</h1>
                 <p class="text-gray-600">আপনার ব্লগ ড্যাশবোর্ডে প্রবেশ করুন</p>
             </div>
-
-            <!-- Step 1: User ID -->
             <div id="userIdStep">
                 <div class="mb-6">
                     <label class="block text-sm font-medium text-gray-700 mb-2">ইউজার ID / ইমেইল</label>
@@ -170,11 +67,8 @@
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors">
                     পরবর্তী ধাপ →
                 </button>
-                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো ইউজার ID: <span id="demoUsername">admin</span>
-                </p>
+                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো ইউজার ID: admin</p>
             </div>
-
-            <!-- Step 2: Password -->
             <div id="passwordStep" class="hidden">
                 <div class="mb-6">
                     <div class="flex items-center justify-between mb-2">
@@ -189,16 +83,11 @@
                     class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors">
                     লগইন করুন
                 </button>
-                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো পাসওয়ার্ড: <span
-                        id="demoPassword">admin123</span></p>
+                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো পাসওয়ার্ড: admin123</p>
             </div>
-
-            <div class="mt-6 text-center space-y-2">
-                <button onclick="goToPublicView()" class="text-sm text-gray-600 hover:text-gray-800 block w-full">
+            <div class="mt-6 text-center">
+                <button onclick="goToPublicView()" class="text-sm text-gray-600 hover:text-gray-800">
                     পাবলিক ব্লগ দেখুন →
-                </button>
-                <button onclick="openSettingsModal()" class="text-sm text-blue-600 hover:text-blue-800 block w-full">
-                    ⚙️ সেটিংস পরিবর্তন করুন
                 </button>
             </div>
         </div>
@@ -206,51 +95,22 @@
 
     <!-- Public Blog View -->
     <div id="publicView">
-        <!-- Header -->
         <header class="bg-white shadow-sm border-b">
             <div class="max-w-4xl mx-auto px-4 py-6">
                 <div class="text-center">
-                    <h1 id="publicBlogTitle" class="text-3xl font-bold text-gray-900">মুক্তাদিরের ব্যক্তিগত ব্লগ</h1>
-                    <p id="publicBlogDescription" class="text-gray-600 mt-1">আমার চিন্তাভাবনা ও অভিজ্ঞতা</p>
+                    <h1 class="text-3xl font-bold text-gray-900">আমার ব্যক্তিগত ব্লগ</h1>
+                    <p class="text-gray-600 mt-1">আমার চিন্তাভাবনা ও অভিজ্ঞতা</p>
                 </div>
-
             </div>
         </header>
-
-        <!-- Main Content -->
         <main class="max-w-4xl mx-auto px-4 py-8">
-            <div id="postsContainer">
-                <!-- Posts will be loaded here -->
-            </div>
-
-            <div id="loadingPosts" class="text-center py-16">
-                <div class="loading mx-auto mb-4"></div>
-                <p class="text-gray-500">পোস্ট লোড হচ্ছে...</p>
-            </div>
-
-            <div id="noPosts" class="hidden text-center py-16">
+            <div id="postsContainer"></div>
+            <div id="noPosts" class="text-center py-16">
                 <div class="text-6xl mb-4">📝</div>
                 <h3 class="text-xl font-semibold text-gray-700 mb-2">এখনো কোনো পোস্ট নেই</h3>
-                <p class="text-gray-500 mb-4">শীঘ্রই নতুন পোস্ট আসবে</p>
-                <button onclick="showAdminLogin()" class="text-sm text-gray-500 hover:text-gray-700 underline">
-                    অ্যাডমিন লগইন
-                </button>
+                <p class="text-gray-500">শীঘ্রই নতুন পোস্ট আসবে</p>
             </div>
         </main>
-
-        <!-- Footer -->
-        <footer class="bg-white border-t mt-16">
-            <div class="max-w-4xl mx-auto px-4 py-6 text-center">
-                <p class="text-gray-500 text-sm">
-                    © ২০২৪ <span id="footerBlogTitle">মুক্তাদিরের ব্যক্তিগত ব্লগ</span> • সকল অধিকার সংরক্ষিত
-                </p>
-                <div class="mt-2">
-                    <button onclick="showAdminLogin()" class="text-xs text-gray-400 hover:text-gray-600">
-                        Admin
-                    </button>
-                </div>
-            </div>
-        </footer>
     </div>
 
     <!-- Admin Dashboard -->
@@ -259,30 +119,21 @@
             <div class="max-w-6xl mx-auto px-4 py-6">
                 <div class="flex justify-between items-center">
                     <div>
-                        <h1 id="adminBlogTitle" class="text-3xl font-bold text-gray-900">অ্যাডমিন ড্যাশবোর্ড</h1>
+                        <h1 class="text-3xl font-bold text-gray-900">অ্যাডমিন ড্যাশবোর্ড</h1>
                         <p class="text-gray-600 mt-1">আপনার ব্লগ পরিচালনা করুন</p>
                     </div>
                     <div class="flex gap-3">
-                        <button onclick="openSettingsModal()"
-                            class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            ⚙️ সেটিংস
-                        </button>
                         <button onclick="goToPublicView()"
-                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            🌐 পাবলিক ভিউ
-                        </button>
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">🌐
+                            পাবলিক ভিউ</button>
                         <button onclick="logout()"
-                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            লগআউট
-                        </button>
+                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">লগআউট</button>
                     </div>
                 </div>
             </div>
         </header>
-
         <div class="max-w-6xl mx-auto px-4 py-8">
             <div class="bg-white rounded-xl shadow-lg p-6">
-                <!-- Dashboard Navigation -->
                 <div class="flex border-b border-gray-200 mb-6 overflow-x-auto">
                     <button onclick="showTab('newPost')" id="newPostTab"
                         class="px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">
@@ -296,13 +147,7 @@
                         class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
                         📄 ড্রাফট (<span id="draftCount">0</span>)
                     </button>
-                    <button onclick="showTab('analytics')" id="analyticsTab"
-                        class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
-                        📊 অ্যানালিটিক্স
-                    </button>
                 </div>
-
-                <!-- New Post Tab -->
                 <div id="newPostContent">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">নতুন পোস্ট লিখুন</h3>
                     <input type="text" id="postTitle" placeholder="পোস্টের শিরোনাম"
@@ -310,85 +155,24 @@
                     <textarea id="postContent" placeholder="আপনার পোস্ট এখানে লিখুন..."
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4 h-40 resize-none"></textarea>
                     <div class="flex gap-3">
-                        <button id="publishBtn" onclick="publishPost()"
+                        <button onclick="publishPost()"
                             class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
                             📝 পোস্ট করুন
                         </button>
-                        <button id="draftBtn" onclick="saveDraft()"
+                        <button onclick="saveDraft()"
                             class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors">
                             💾 ড্রাফট সেভ করুন
                         </button>
                     </div>
                 </div>
-
-                <!-- Manage Posts Tab -->
                 <div id="managePostsContent" class="hidden">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">প্রকাশিত পোস্টসমূহ</h3>
-                    <div id="adminPostsList">
-                        <!-- Posts will be loaded here -->
-                    </div>
+                    <div id="adminPostsList"></div>
                 </div>
-
-                <!-- Drafts Tab -->
                 <div id="draftsContent" class="hidden">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">ড্রাফট পোস্টসমূহ</h3>
-                    <div id="draftsList">
-                        <!-- Drafts will be loaded here -->
-                    </div>
+                    <div id="draftsList"></div>
                 </div>
-
-                <!-- Analytics Tab -->
-                <div id="analyticsContent" class="hidden">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">📊 ব্লগ অ্যানালিটিক্স</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div class="bg-blue-50 rounded-lg p-6 text-center">
-                            <div class="text-3xl font-bold text-blue-600" id="totalPosts">0</div>
-                            <div class="text-sm text-gray-600 mt-1">মোট পোস্ট</div>
-                        </div>
-                        <div class="bg-green-50 rounded-lg p-6 text-center">
-                            <div class="text-3xl font-bold text-green-600" id="totalDrafts">0</div>
-                            <div class="text-sm text-gray-600 mt-1">মোট ড্রাফট</div>
-                        </div>
-                        <div class="bg-purple-50 rounded-lg p-6 text-center">
-                            <div class="text-3xl font-bold text-purple-600" id="totalViews">0</div>
-                            <div class="text-sm text-gray-600 mt-1">মোট ভিউ</div>
-                        </div>
-                    </div>
-
-                    <div class="bg-gray-50 rounded-lg p-4">
-                        <h4 class="font-medium mb-2">🔧 সিস্টেম স্ট্যাটাস</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div>
-                                <strong>Firebase Status:</strong>
-                                <span id="firebaseStatus" class="ml-2"></span>
-                            </div>
-                            <div>
-                                <strong>Database Connection:</strong>
-                                <span id="dbStatus" class="ml-2"></span>
-                            </div>
-                            <div>
-                                <strong>Last Updated:</strong>
-                                <span id="lastUpdated" class="ml-2"></span>
-                            </div>
-                            <div>
-                                <strong>Version:</strong>
-                                <span class="ml-2">v2.0.0</span>
-                            </div>
-                        </div>
-                        <div class="mt-4">
-                            <button onclick="refreshAnalytics()"
-                                class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded text-sm">
-                                🔄 রিফ্রেশ করুন
-                            </button>
-                            <button onclick="testConnection()"
-                                class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded text-sm ml-2">
-                                🔗 কানেকশন টেস্ট
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Edit Post Modal -->
                 <div id="editModal"
                     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
@@ -397,7 +181,6 @@
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4">
                         <textarea id="editContent" placeholder="আপনার পোস্ট এখানে লিখুন..."
                             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4 h-40 resize-none"></textarea>
-
                         <div class="flex gap-3">
                             <button onclick="saveEditedPost()"
                                 class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors">
@@ -414,20 +197,8 @@
         </div>
     </div>
 
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-
     <script>
-        // ===== CUSTOMIZABLE SETTINGS =====
-        let BLOG_SETTINGS = {
-            title: "মুক্তাদিরের ব্যক্তিগত ব্লগ",
-            description: "আমার চিন্তাভাবনা ও অভিজ্ঞতা",
-            adminUsername: "admin",
-            adminPassword: "admin123"
-        };
-
-        // Firebase configuration
+        // Firebase config with your credentials
         const firebaseConfig = {
             apiKey: "AIzaSyAnqlWmB3YL4lqoy_YeE4mD3ELk-5sUW8Q",
             authDomain: "muktadir-s-personal-blog.firebaseapp.com",
@@ -437,444 +208,199 @@
             appId: "1:868249534030:web:4b790381ba8491fb998d1f",
             measurementId: "G-CY0GW8NP1K"
         };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
 
-        // Initialize Firebase
-        let app, db;
-        let firebaseReady = false;
-
-        try {
-            app = firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            firebaseReady = true;
-            console.log("✅ Firebase connected successfully!");
-
-            // Auto load posts if on public view
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', function () {
-                    initializePage();
-                });
-            } else {
-                initializePage();
-            }
-        } catch (error) {
-            console.error("❌ Firebase initialization error:", error);
-            firebaseReady = false;
-            showNotification('Firebase সংযোগে সমস্যা হয়েছে!', 'error');
-        }
-
-        // Global variables
+        let posts = [];
+        let drafts = [];
         let isLoggedIn = false;
         let editingPostId = null;
         let editingDraftId = null;
         let currentUserId = '';
 
-        // ===== NOTIFICATION SYSTEM =====
-        function showNotification(message, type = 'success') {
-            const container = document.getElementById('notificationContainer');
-            const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
-            notification.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-gray-200">
-                        ✕
-                    </button>
+        // CRUD functions (Firestore)
+        async function fetchPosts() {
+            const snap = await db.collection("posts").orderBy("createdAt", "desc").get();
+            posts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+        async function fetchDrafts() {
+            const snap = await db.collection("drafts").orderBy("createdAt", "desc").get();
+            drafts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+        async function addPostToFirestore(title, content) {
+            const now = new Date();
+            await db.collection("posts").add({
+                title,
+                content,
+                date: now.toLocaleDateString('bn-BD'),
+                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                status: 'published',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        async function addDraftToFirestore(title, content) {
+            const now = new Date();
+            await db.collection("drafts").add({
+                title: title || 'শিরোনামহীন ড্রাফট',
+                content,
+                date: now.toLocaleDateString('bn-BD'),
+                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        async function updatePostInFirestore(postId, title, content) {
+            const now = new Date();
+            await db.collection("posts").doc(postId).update({
+                title,
+                content,
+                date: now.toLocaleDateString('bn-BD') + ' (সম্পাদিত)',
+                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
+            });
+        }
+        async function updateDraftInFirestore(draftId, title, content) {
+            const now = new Date();
+            await db.collection("drafts").doc(draftId).update({
+                title,
+                content,
+                date: now.toLocaleDateString('bn-BD'),
+                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
+            });
+        }
+        async function deletePostFromFirestore(postId) {
+            await db.collection("posts").doc(postId).delete();
+        }
+        async function deleteDraftFromFirestore(draftId) {
+            await db.collection("drafts").doc(draftId).delete();
+        }
+        async function publishDraftInFirestore(draftId) {
+            const draft = drafts.find(d => d.id === draftId);
+            if (!draft || !draft.title.trim() || !draft.content.trim()) {
+                alert('ড্রাফট পাবলিশ করতে শিরোনাম এবং কন্টেন্ট দুটোই থাকতে হবে!');
+                return;
+            }
+            await addPostToFirestore(draft.title, draft.content);
+            await deleteDraftFromFirestore(draftId);
+        }
+
+        // UI functions
+        async function loadPosts() {
+            await fetchPosts();
+            const container = document.getElementById('postsContainer');
+            const noPosts = document.getElementById('noPosts');
+            const publishedPosts = posts.filter(post => post.status === 'published');
+            if (publishedPosts.length === 0) {
+                container.innerHTML = '';
+                noPosts.classList.remove('hidden');
+                return;
+            }
+            noPosts.classList.add('hidden');
+            container.innerHTML = publishedPosts.map(post => `
+                <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
+                    <header class="mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">${post.title}</h2>
+                        <div class="flex items-center text-sm text-gray-500">
+                            <span class="mr-4">📅 ${post.date}</span>
+                            <span>🕐 ${post.time}</span>
+                        </div>
+                    </header>
+                    <div class="prose prose-lg max-w-none">
+                        <p class="text-gray-700 leading-relaxed">${post.content}</p>
+                    </div>
+                    <footer class="mt-6 pt-4 border-t border-gray-100">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span class="flex items-center">
+                                    <span class="mr-1">👁️</span>
+                                    ${Math.floor(Math.random() * 100) + 20} বার দেখা হয়েছে
+                                </span>
+                            </div>
+                            <div class="flex space-x-2">
+                                <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">👍 পছন্দ</button>
+                                <button class="text-green-600 hover:text-green-800 text-sm font-medium">📤 শেয়ার</button>
+                            </div>
+                        </div>
+                    </footer>
+                </article>
+            `).join('');
+        }
+
+        function updateDraftCount() {
+            document.getElementById('draftCount').textContent = drafts.length;
+        }
+
+        async function loadAdminPosts() {
+            await fetchPosts();
+            const container = document.getElementById('adminPostsList');
+            const publishedPosts = posts.filter(post => post.status === 'published');
+            if (publishedPosts.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
+                return;
+            }
+            container.innerHTML = publishedPosts.map(post => `
+                <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900 mb-2">${post.title}</h4>
+                            <p class="text-gray-600 text-sm mb-2">${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
+                            <div class="text-xs text-gray-500">
+                                📅 ${post.date} • 🕐 ${post.time}
+                            </div>
+                        </div>
+                        <div class="flex gap-2 ml-4">
+                            <button onclick="editPost('${post.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                ✏️ এডিট
+                            </button>
+                            <button onclick="deletePost('${post.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                🗑️ ডিলিট
+                            </button>
+                        </div>
+                    </div>
                 </div>
-            `;
-
-            container.appendChild(notification);
-
-            // Show notification
-            setTimeout(() => notification.classList.add('show'), 100);
-
-            // Auto hide after 5 seconds
-            setTimeout(() => {
-                notification.classList.remove('show');
-                setTimeout(() => notification.remove(), 300);
-            }, 5000);
+            `).join('');
         }
 
-        // ===== SETTINGS FUNCTIONS =====
-        function openSettingsModal() {
-            document.getElementById('blogTitle').value = BLOG_SETTINGS.title;
-            document.getElementById('blogDescription').value = BLOG_SETTINGS.description;
-            document.getElementById('adminUsername').value = BLOG_SETTINGS.adminUsername;
-            document.getElementById('adminPass').value = BLOG_SETTINGS.adminPassword;
-            document.getElementById('settingsModal').classList.remove('hidden');
-        }
-
-        function closeSettingsModal() {
-            document.getElementById('settingsModal').classList.add('hidden');
-        }
-
-        function saveSettings() {
-            BLOG_SETTINGS.title = document.getElementById('blogTitle').value.trim();
-            BLOG_SETTINGS.description = document.getElementById('blogDescription').value.trim();
-            BLOG_SETTINGS.adminUsername = document.getElementById('adminUsername').value.trim();
-            BLOG_SETTINGS.adminPassword = document.getElementById('adminPass').value.trim();
-
-            // Update UI elements
-            updateUIWithSettings();
-
-            closeSettingsModal();
-            showNotification('সেটিংস সফলভাবে সেভ হয়েছে! 🎉', 'success');
-        }
-
-        function updateUIWithSettings() {
-            // Update public view
-            document.getElementById('publicBlogTitle').textContent = BLOG_SETTINGS.title;
-            document.getElementById('publicBlogDescription').textContent = BLOG_SETTINGS.description;
-            document.getElementById('footerBlogTitle').textContent = BLOG_SETTINGS.title;
-
-            // Update admin view
-            document.getElementById('adminBlogTitle').textContent = BLOG_SETTINGS.title + ' - অ্যাডমিন';
-
-            // Update login demo text
-            document.getElementById('demoUsername').textContent = BLOG_SETTINGS.adminUsername;
-            document.getElementById('demoPassword').textContent = BLOG_SETTINGS.adminPassword;
-
-            // Update page title
-            document.title = BLOG_SETTINGS.title;
-        }
-
-        // ===== INITIALIZATION =====
-        function initializePage() {
-            updateUIWithSettings();
-            checkUrlHash();
-            if (window.location.hash !== '#admin') {
-                setTimeout(loadPosts, 500);
+        async function loadDrafts() {
+            await fetchDrafts();
+            const container = document.getElementById('draftsList');
+            if (drafts.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
+                updateDraftCount();
+                return;
             }
-        }
-
-        // ===== NAVIGATION FUNCTIONS =====
-        function checkUrlHash() {
-            if (window.location.hash === '#admin') {
-                showAdminLogin();
-            } else {
-                showPublicView();
-            }
-        }
-
-        function showAdminLogin() {
-            document.getElementById('adminLoginPage').classList.remove('hidden');
-            document.getElementById('publicView').classList.add('hidden');
-            document.getElementById('adminDashboard').classList.add('hidden');
-            document.getElementById('userId').focus();
-        }
-
-        function showPublicView() {
-            document.getElementById('adminLoginPage').classList.add('hidden');
-            document.getElementById('publicView').classList.remove('hidden');
-            document.getElementById('adminDashboard').classList.add('hidden');
-            window.location.hash = '';
-            loadPosts();
-        }
-
-        function showAdminDashboard() {
-            document.getElementById('adminLoginPage').classList.add('hidden');
-            document.getElementById('publicView').classList.add('hidden');
-            document.getElementById('adminDashboard').classList.remove('hidden');
-            window.location.hash = 'admin';
-
-            if (!firebaseReady || !db) {
-                showNotification('⚠️ Firebase সংযোগে সমস্যা! পেজ রিফ্রেশ করুন।', 'error');
-            } else {
-                showNotification('✅ সফলভাবে লগইন হয়েছে!', 'success');
-            }
-
+            container.innerHTML = drafts.map(draft => `
+                <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900 mb-2">${draft.title}</h4>
+                            <p class="text-gray-600 text-sm mb-2">${draft.content ? draft.content.substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'কোনো কন্টেন্ট নেই'}</p>
+                            <div class="text-xs text-gray-500">
+                                📅 ${draft.date} • 🕐 ${draft.time} • 📄 ড্রাফট
+                            </div>
+                        </div>
+                        <div class="flex gap-2 ml-4">
+                            <button onclick="editDraft('${draft.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                ✏️ এডিট
+                            </button>
+                            <button onclick="publishDraft('${draft.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                📝 পাবলিশ
+                            </button>
+                            <button onclick="deleteDraft('${draft.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                🗑️ ডিলিট
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
             updateDraftCount();
-            refreshAnalytics();
         }
 
-        function goToPublicView() {
-            showPublicView();
-        }
-
-        // ===== LOGIN FUNCTIONS =====
-        function checkUserId() {
-            const userId = document.getElementById('userId').value.trim();
-
-            if (userId === BLOG_SETTINGS.adminUsername) {
-                currentUserId = userId;
-                document.getElementById('userIdStep').classList.add('hidden');
-                document.getElementById('passwordStep').classList.remove('hidden');
-                document.getElementById('adminPassword').focus();
-            } else {
-                showNotification(`ভুল ইউজার ID! সঠিক ID: ${BLOG_SETTINGS.adminUsername}`, 'error');
-            }
-        }
-
-        function goBackToUserId() {
-            document.getElementById('userIdStep').classList.remove('hidden');
-            document.getElementById('passwordStep').classList.add('hidden');
-            document.getElementById('adminPassword').value = '';
-        }
-
-        function checkPassword() {
-            const password = document.getElementById('adminPassword').value;
-
-            if (password === BLOG_SETTINGS.adminPassword) {
-                isLoggedIn = true;
-                showAdminDashboard();
-                document.getElementById('postTitle').focus();
-            } else {
-                showNotification(`ভুল পাসওয়ার্ড! সঠিক পাসওয়ার্ড: ${BLOG_SETTINGS.adminPassword}`, 'error');
-            }
-        }
-
-        function logout() {
-            isLoggedIn = false;
-            currentUserId = '';
-            document.getElementById('userId').value = '';
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('postTitle').value = '';
-            document.getElementById('postContent').value = '';
-            goBackToUserId();
-            showAdminLogin();
-            showNotification('সফলভাবে লগআউট হয়েছে!', 'success');
-        }
-
-        // ===== LOADING FUNCTIONS =====
-        function setButtonLoading(buttonId, isLoading, originalText) {
-            const button = document.getElementById(buttonId);
-            if (isLoading) {
-                button.disabled = true;
-                button.innerHTML = '<div class="loading mr-2"></div> প্রসেসিং...';
-                button.classList.add('opacity-75', 'cursor-not-allowed');
-            } else {
-                button.disabled = false;
-                button.innerHTML = originalText;
-                button.classList.remove('opacity-75', 'cursor-not-allowed');
-            }
-        }
-
-        // ===== FIREBASE FUNCTIONS =====
-        function loadPosts() {
-            if (!firebaseReady || !db) {
-                console.log("Firebase not ready, retrying...");
-                setTimeout(loadPosts, 1000);
-                return;
-            }
-
-            try {
-                document.getElementById('loadingPosts').classList.remove('hidden');
-                document.getElementById('postsContainer').innerHTML = '';
-                document.getElementById('noPosts').classList.add('hidden');
-
-                db.collection('posts')
-                    .where('status', '==', 'published')
-                    .orderBy('timestamp', 'desc')
-                    .get()
-                    .then((querySnapshot) => {
-                        document.getElementById('loadingPosts').classList.add('hidden');
-
-                        if (querySnapshot.empty) {
-                            document.getElementById('noPosts').classList.remove('hidden');
-                            return;
-                        }
-
-                        const posts = [];
-                        querySnapshot.forEach((doc) => {
-                            posts.push({ id: doc.id, ...doc.data() });
-                        });
-
-                        const container = document.getElementById('postsContainer');
-                        container.innerHTML = posts.map(post => `
-                          <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
-                              <header class="mb-4">
-                                  <h2 class="text-2xl font-bold text-gray-900 mb-2">${post.title}</h2>
-                                  <div class="flex items-center text-sm text-gray-500">
-                                      <span class="mr-4">📅 ${post.date}</span>
-                                      <span>🕐 ${post.time}</span>
-                                  </div>
-                              </header>
-                              <div class="prose prose-lg max-w-none">
-                                  <p class="text-gray-700 leading-relaxed">${post.content}</p>
-                              </div>
-                              <footer class="mt-6 pt-4 border-t border-gray-100">
-                                  <div class="flex items-center justify-between">
-                                      <div class="flex items-center space-x-4 text-sm text-gray-500">
-                                          <span class="flex items-center">
-                                              <span class="mr-1">👁️</span>
-                                              ${Math.floor(Math.random() * 100) + 20} বার দেখা হয়েছে
-                                          </span>
-                                      </div>
-                                      <div class="flex space-x-2">
-                                          <button onclick="likePost('${post.id}')" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                                              👍 পছন্দ
-                                          </button>
-                                          <button onclick="sharePost('${post.id}', '${post.title}')" class="text-green-600 hover:text-green-800 text-sm font-medium">
-                                              📤 শেয়ার
-                                          </button>
-                                      </div>
-                                  </div>
-                              </footer>
-                          </article>
-                      `).join('');
-                    })
-                    .catch((error) => {
-                        console.error("Error loading posts:", error);
-                        document.getElementById('loadingPosts').classList.add('hidden');
-                        document.getElementById('noPosts').classList.remove('hidden');
-                        showNotification('পোস্ট লোড করতে সমস্যা হয়েছে!', 'error');
-                    });
-            } catch (error) {
-                console.error("Error loading posts:", error);
-                document.getElementById('loadingPosts').classList.add('hidden');
-                document.getElementById('noPosts').classList.remove('hidden');
-                showNotification('পোস্ট লোড করতে সমস্যা হয়েছে!', 'error');
-            }
-        }
-
-        function publishPost() {
-            const title = document.getElementById('postTitle').value.trim();
-            const content = document.getElementById('postContent').value.trim();
-
-            if (!title || !content) {
-                showNotification('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!', 'error');
-                return;
-            }
-
-            if (!firebaseReady || !db) {
-                showNotification('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।', 'error');
-                return;
-            }
-
-            setButtonLoading('publishBtn', true, '📝 পোস্ট করুন');
-
-            try {
-                const now = new Date();
-                const bengaliDate = now.toLocaleDateString('bn-BD');
-                const bengaliTime = now.toLocaleTimeString('bn-BD', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                });
-
-                const newPost = {
-                    title: title,
-                    content: content,
-                    date: bengaliDate,
-                    time: bengaliTime,
-                    status: 'published',
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                    views: 0,
-                    likes: 0
-                };
-
-                console.log('Publishing post:', newPost);
-
-                db.collection('posts').add(newPost)
-                    .then((docRef) => {
-                        console.log('✅ Post published with ID:', docRef.id);
-
-                        document.getElementById('postTitle').value = '';
-                        document.getElementById('postContent').value = '';
-
-                        setButtonLoading('publishBtn', false, '📝 পোস্ট করুন');
-
-                        showNotification('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉', 'success');
-
-                        if (!document.getElementById('managePostsContent').classList.contains('hidden')) {
-                            setTimeout(loadAdminPosts, 1000);
-                        }
-
-                        refreshAnalytics();
-                    })
-                    .catch((error) => {
-                        console.error("❌ Error publishing post:", error);
-                        setButtonLoading('publishBtn', false, '📝 পোস্ট করুন');
-                        showNotification('পোস্ট প্রকাশে সমস্যা হয়েছে: ' + error.message, 'error');
-                    });
-            } catch (error) {
-                console.error("❌ Error publishing post:", error);
-                setButtonLoading('publishBtn', false, '📝 পোস্ট করুন');
-                showNotification('পোস্ট প্রকাশে সমস্যা হয়েছে: ' + error.message, 'error');
-            }
-        }
-
-        function saveDraft() {
-            const title = document.getElementById('postTitle').value.trim();
-            const content = document.getElementById('postContent').value.trim();
-
-            if (!title && !content) {
-                showNotification('অন্তত শিরোনাম বা কন্টেন্ট একটি লিখতে হবে!', 'error');
-                return;
-            }
-
-            if (!firebaseReady || !db) {
-                showNotification('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।', 'error');
-                return;
-            }
-
-            setButtonLoading('draftBtn', true, '💾 ড্রাফট সেভ করুন');
-
-            try {
-                const now = new Date();
-                const bengaliDate = now.toLocaleDateString('bn-BD');
-                const bengaliTime = now.toLocaleTimeString('bn-BD', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                });
-
-                const newDraft = {
-                    title: title || 'শিরোনামহীন ড্রাফট',
-                    content: content,
-                    date: bengaliDate,
-                    time: bengaliTime,
-                    status: 'draft',
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                console.log('Saving draft:', newDraft);
-
-                db.collection('posts').add(newDraft)
-                    .then((docRef) => {
-                        console.log('✅ Draft saved with ID:', docRef.id);
-
-                        updateDraftCount();
-
-                        document.getElementById('postTitle').value = '';
-                        document.getElementById('postContent').value = '';
-
-                        setButtonLoading('draftBtn', false, '💾 ড্রাফট সেভ করুন');
-
-                        showNotification('ড্রাফট সফলভাবে সেভ হয়েছে! 💾', 'success');
-
-                        if (!document.getElementById('draftsContent').classList.contains('hidden')) {
-                            setTimeout(loadDrafts, 1000);
-                        }
-
-                        refreshAnalytics();
-                    })
-                    .catch((error) => {
-                        console.error("❌ Error saving draft:", error);
-                        setButtonLoading('draftBtn', false, '💾 ড্রাফট সেভ করুন');
-                        showNotification('ড্রাফট সেভে সমস্যা হয়েছে: ' + error.message, 'error');
-                    });
-            } catch (error) {
-                console.error("❌ Error saving draft:", error);
-                setButtonLoading('draftBtn', false, '💾 ড্রাফট সেভ করুন');
-                showNotification('ড্রাফট সেভে সমস্যা হয়েছে: ' + error.message, 'error');
-            }
-        }
-
-        // ===== TAB FUNCTIONS =====
         function showTab(tabName) {
-            // Hide all tabs
             document.getElementById('newPostContent').classList.add('hidden');
             document.getElementById('managePostsContent').classList.add('hidden');
             document.getElementById('draftsContent').classList.add('hidden');
-            document.getElementById('analyticsContent').classList.add('hidden');
-
-            // Reset all tab buttons
             document.getElementById('newPostTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap';
             document.getElementById('managePostsTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
             document.getElementById('draftsTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
-            document.getElementById('analyticsTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
-
-            // Show selected tab
             if (tabName === 'newPost') {
                 document.getElementById('newPostContent').classList.remove('hidden');
                 document.getElementById('newPostTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap';
@@ -886,262 +412,52 @@
                 document.getElementById('draftsContent').classList.remove('hidden');
                 document.getElementById('draftsTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap';
                 loadDrafts();
-            } else if (tabName === 'analytics') {
-                document.getElementById('analyticsContent').classList.remove('hidden');
-                document.getElementById('analyticsTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap';
-                refreshAnalytics();
             }
         }
 
-        // ===== ADMIN FUNCTIONS =====
-        function loadAdminPosts() {
-            if (!firebaseReady || !db) return;
-
-            try {
-                db.collection('posts')
-                    .where('status', '==', 'published')
-                    .orderBy('timestamp', 'desc')
-                    .get()
-                    .then((querySnapshot) => {
-                        const container = document.getElementById('adminPostsList');
-
-                        if (querySnapshot.empty) {
-                            container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
-                            return;
-                        }
-
-                        const posts = [];
-                        querySnapshot.forEach((doc) => {
-                            posts.push({ id: doc.id, ...doc.data() });
-                        });
-
-                        container.innerHTML = posts.map(post => `
-                          <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
-                              <div class="flex justify-between items-start">
-                                  <div class="flex-1">
-                                      <h4 class="font-semibold text-gray-900 mb-2">${post.title}</h4>
-                                      <p class="text-gray-600 text-sm mb-2">${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
-                                      <div class="text-xs text-gray-500">
-                                          📅 ${post.date} • 🕐 ${post.time} • 👁️ ${post.views || 0} ভিউ
-                                      </div>
-                                  </div>
-                                  <div class="flex gap-2 ml-4">
-                                      <button onclick="editPost('${post.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                          ✏️ এডিট
-                                      </button>
-                                      <button onclick="deletePost('${post.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                          🗑️ ডিলিট
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>
-                      `).join('');
-                    })
-                    .catch((error) => {
-                        console.error("Error loading admin posts:", error);
-                        const container = document.getElementById('adminPostsList');
-                        container.innerHTML = '<p class="text-red-500 text-center py-8">পোস্ট লোড করতে সমস্যা হয়েছে</p>';
-                    });
-            } catch (error) {
-                console.error("Error loading admin posts:", error);
-                const container = document.getElementById('adminPostsList');
-                container.innerHTML = '<p class="text-red-500 text-center py-8">পোস্ট লোড করতে সমস্যা হয়েছে</p>';
-            }
-        }
-
-        function loadDrafts() {
-            if (!firebaseReady || !db) return;
-
-            try {
-                db.collection('posts')
-                    .where('status', '==', 'draft')
-                    .orderBy('timestamp', 'desc')
-                    .get()
-                    .then((querySnapshot) => {
-                        const container = document.getElementById('draftsList');
-
-                        if (querySnapshot.empty) {
-                            container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
-                            return;
-                        }
-
-                        const drafts = [];
-                        querySnapshot.forEach((doc) => {
-                            drafts.push({ id: doc.id, ...doc.data() });
-                        });
-
-                        container.innerHTML = drafts.map(draft => `
-                          <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200">
-                              <div class="flex justify-between items-start">
-                                  <div class="flex-1">
-                                      <h4 class="font-semibold text-gray-900 mb-2">${draft.title}</h4>
-                                      <p class="text-gray-600 text-sm mb-2">${draft.content ? draft.content.substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'কোনো কন্টেন্ট নেই'}</p>
-                                      <div class="text-xs text-gray-500">
-                                          📅 ${draft.date} • 🕐 ${draft.time} • 📄 ড্রাফট
-                                      </div>
-                                  </div>
-                                  <div class="flex gap-2 ml-4">
-                                      <button onclick="editDraft('${draft.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                          ✏️ এডিট
-                                      </button>
-                                      <button onclick="publishDraft('${draft.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                          📝 পাবলিশ
-                                      </button>
-                                      <button onclick="deleteDraft('${draft.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                          🗑️ ডিলিট
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>
-                      `).join('');
-                    })
-                    .catch((error) => {
-                        console.error("Error loading drafts:", error);
-                        const container = document.getElementById('draftsList');
-                        container.innerHTML = '<p class="text-red-500 text-center py-8">ড্রাফট লোড করতে সমস্যা হয়েছে</p>';
-                    });
-            } catch (error) {
-                console.error("Error loading drafts:", error);
-                const container = document.getElementById('draftsList');
-                container.innerHTML = '<p class="text-red-500 text-center py-8">ড্রাফট লোড করতে সমস্যা হয়েছে</p>';
-            }
-        }
-
-        function updateDraftCount() {
-            if (!firebaseReady || !db) return;
-
-            try {
-                db.collection('posts')
-                    .where('status', '==', 'draft')
-                    .get()
-                    .then((querySnapshot) => {
-                        document.getElementById('draftCount').textContent = querySnapshot.size;
-                    })
-                    .catch((error) => {
-                        console.error("Error updating draft count:", error);
-                        document.getElementById('draftCount').textContent = '0';
-                    });
-            } catch (error) {
-                console.error("Error updating draft count:", error);
-                document.getElementById('draftCount').textContent = '0';
-            }
-        }
-
-        // ===== ANALYTICS FUNCTIONS =====
-        function refreshAnalytics() {
-            if (!firebaseReady || !db) {
-                document.getElementById('firebaseStatus').textContent = '❌ Disconnected';
-                document.getElementById('dbStatus').textContent = '❌ Not Ready';
+        // CRUD actions: publish, save draft, edit, update, delete
+        async function publishPost() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+            if (!title || !content) {
+                alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
                 return;
             }
-
-            document.getElementById('firebaseStatus').textContent = '✅ Connected';
-            document.getElementById('dbStatus').textContent = '✅ Ready';
-            document.getElementById('lastUpdated').textContent = new Date().toLocaleString('bn-BD');
-
-            // Count published posts
-            db.collection('posts')
-                .where('status', '==', 'published')
-                .get()
-                .then((querySnapshot) => {
-                    document.getElementById('totalPosts').textContent = querySnapshot.size;
-                })
-                .catch(() => {
-                    document.getElementById('totalPosts').textContent = '0';
-                });
-
-            // Count drafts
-            db.collection('posts')
-                .where('status', '==', 'draft')
-                .get()
-                .then((querySnapshot) => {
-                    document.getElementById('totalDrafts').textContent = querySnapshot.size;
-                })
-                .catch(() => {
-                    document.getElementById('totalDrafts').textContent = '0';
-                });
-
-            // Calculate total views (mock data for now)
-            document.getElementById('totalViews').textContent = Math.floor(Math.random() * 1000) + 500;
+            await addPostToFirestore(title, content);
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+            alert('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉');
         }
-
-        function testConnection() {
-            if (!firebaseReady || !db) {
-                showNotification('Firebase সংযোগ নেই!', 'error');
+        async function saveDraft() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+            if (!title && !content) {
+                alert('অন্তত শিরোনাম বা কন্টেন্ট একটি লিখতে হবে!');
                 return;
             }
-
-            const testData = {
-                test: true,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                message: 'Connection test'
-            };
-
-            db.collection('test').add(testData)
-                .then((docRef) => {
-                    return db.collection('test').doc(docRef.id).delete();
-                })
-                .then(() => {
-                    showNotification('✅ Firebase connection test successful!', 'success');
-                })
-                .catch((error) => {
-                    showNotification('❌ Firebase test failed: ' + error.message, 'error');
-                });
+            await addDraftToFirestore(title, content);
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+            alert('ড্রাফট সফলভাবে সেভ হয়েছে! 💾');
         }
-
-        // ===== EDIT FUNCTIONS =====
         function editPost(postId) {
-            if (!firebaseReady || !db) return;
-
-            try {
-                db.collection('posts').doc(postId).get()
-                    .then((doc) => {
-                        if (doc.exists) {
-                            const post = { id: postId, ...doc.data() };
-
-                            editingPostId = postId;
-                            editingDraftId = null;
-                            document.getElementById('editTitle').value = post.title;
-                            document.getElementById('editContent').value = post.content;
-                            document.getElementById('editModal').classList.remove('hidden');
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Error loading post for edit:", error);
-                        showNotification('পোস্ট লোড করতে সমস্যা হয়েছে!', 'error');
-                    });
-            } catch (error) {
-                console.error("Error loading post for edit:", error);
-                showNotification('পোস্ট লোড করতে সমস্যা হয়েছে!', 'error');
-            }
+            const post = posts.find(p => p.id === postId);
+            if (!post) return;
+            editingPostId = postId;
+            editingDraftId = null;
+            document.getElementById('editTitle').value = post.title;
+            document.getElementById('editContent').value = post.content;
+            document.getElementById('editModal').classList.remove('hidden');
         }
-
         function editDraft(draftId) {
-            if (!firebaseReady || !db) return;
-
-            try {
-                db.collection('posts').doc(draftId).get()
-                    .then((doc) => {
-                        if (doc.exists) {
-                            const draft = { id: draftId, ...doc.data() };
-
-                            editingDraftId = draftId;
-                            editingPostId = null;
-                            document.getElementById('editTitle').value = draft.title;
-                            document.getElementById('editContent').value = draft.content;
-                            document.getElementById('editModal').classList.remove('hidden');
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Error loading draft for edit:", error);
-                        showNotification('ড্রাফট লোড করতে সমস্যা হয়েছে!', 'error');
-                    });
-            } catch (error) {
-                console.error("Error loading draft for edit:", error);
-                showNotification('ড্রাফট লোড করতে সমস্যা হয়েছে!', 'error');
-            }
+            const draft = drafts.find(d => d.id === draftId);
+            if (!draft) return;
+            editingDraftId = draftId;
+            editingPostId = null;
+            document.getElementById('editTitle').value = draft.title;
+            document.getElementById('editContent').value = draft.content;
+            document.getElementById('editModal').classList.remove('hidden');
         }
-
         function closeEditModal() {
             document.getElementById('editModal').classList.add('hidden');
             editingPostId = null;
@@ -1149,189 +465,121 @@
             document.getElementById('editTitle').value = '';
             document.getElementById('editContent').value = '';
         }
-
-        function saveEditedPost() {
+        async function saveEditedPost() {
             const title = document.getElementById('editTitle').value.trim();
             const content = document.getElementById('editContent').value.trim();
-
             if (!title || !content) {
-                showNotification('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!', 'error');
+                alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
                 return;
             }
-
-            if (!firebaseReady || !db) {
-                showNotification('Firebase সংযোগে সমস্যা। পেজ রিফ্রেশ করুন।', 'error');
-                return;
+            if (editingPostId) {
+                await updatePostInFirestore(editingPostId, title, content);
+                await loadAdminPosts();
+                alert('পোস্ট সফলভাবে আপডেট হয়েছে! ✅');
+            } else if (editingDraftId) {
+                await updateDraftInFirestore(editingDraftId, title, content);
+                await loadDrafts();
+                alert('ড্রাফট সফলভাবে আপডেট হয়েছে! ✅');
             }
-
-            try {
-                const now = new Date();
-                const updateData = {
-                    title: title,
-                    content: content,
-                    date: now.toLocaleDateString('bn-BD') + ' (সম্পাদিত)',
-                    time: now.toLocaleTimeString('bn-BD', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }),
-                    timestamp: now
-                };
-
-                if (editingPostId) {
-                    db.collection('posts').doc(editingPostId).update(updateData)
-                        .then(() => {
-                            loadAdminPosts();
-                            showNotification('পোস্ট সফলভাবে আপডেট হয়েছে! ✅', 'success');
-                            closeEditModal();
-                        })
-                        .catch((error) => {
-                            console.error("Error updating post:", error);
-                            showNotification('আপডেটে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-                        });
-                } else if (editingDraftId) {
-                    updateData.date = updateData.date.replace(' (সম্পাদিত)', '');
-                    db.collection('posts').doc(editingDraftId).update(updateData)
-                        .then(() => {
-                            loadDrafts();
-                            showNotification('ড্রাফট সফলভাবে আপডেট হয়েছে! ✅', 'success');
-                            closeEditModal();
-                        })
-                        .catch((error) => {
-                            console.error("Error updating draft:", error);
-                            showNotification('আপডেটে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-                        });
-                }
-            } catch (error) {
-                console.error("Error updating post:", error);
-                showNotification('আপডেটে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
+            closeEditModal();
+        }
+        async function publishDraft(draftId) {
+            await publishDraftInFirestore(draftId);
+            await loadDrafts();
+            alert('ড্রাফট সফলভাবে পাবলিশ হয়েছে! 🎉');
+        }
+        async function deletePost(postId) {
+            const post = posts.find(p => p.id === postId);
+            if (!post) return;
+            if (confirm(`"${post.title}" পোস্টটি কি সত্যিই ডিলিট করতে চান?`)) {
+                await deletePostFromFirestore(postId);
+                await loadAdminPosts();
+                alert('পোস্ট ডিলিট হয়েছে! 🗑️');
+            }
+        }
+        async function deleteDraft(draftId) {
+            const draft = drafts.find(d => d.id === draftId);
+            if (!draft) return;
+            if (confirm(`"${draft.title}" ড্রাফটটি কি সত্যিই ডিলিট করতে চান?`)) {
+                await deleteDraftFromFirestore(draftId);
+                await loadDrafts();
+                alert('ড্রাফট ডিলিট হয়েছে! 🗑️');
             }
         }
 
-        function publishDraft(draftId) {
-            if (!firebaseReady || !db) return;
-
-            try {
-                const now = new Date();
-                const updateData = {
-                    status: 'published',
-                    date: now.toLocaleDateString('bn-BD'),
-                    time: now.toLocaleTimeString('bn-BD', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                    }),
-                    timestamp: now,
-                    views: 0,
-                    likes: 0
-                };
-
-                db.collection('posts').doc(draftId).update(updateData)
-                    .then(() => {
-                        updateDraftCount();
-                        loadDrafts();
-                        refreshAnalytics();
-                        showNotification('ড্রাফট সফলভাবে পাবলিশ হয়েছে! 🎉', 'success');
-                    })
-                    .catch((error) => {
-                        console.error("Error publishing draft:", error);
-                        showNotification('পাবলিশে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-                    });
-            } catch (error) {
-                console.error("Error publishing draft:", error);
-                showNotification('পাবলিশে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-            }
+        // Admin/Login System (unchanged)
+        function showAdminLogin() {
+            document.getElementById('adminLoginPage').classList.remove('hidden');
+            document.getElementById('publicView').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('userId').focus();
         }
-
-        function deletePost(postId) {
-            if (!firebaseReady || !db) return;
-
-            if (confirm('এই পোস্টটি কি সত্যিই ডিলিট করতে চান?')) {
-                try {
-                    db.collection('posts').doc(postId).delete()
-                        .then(() => {
-                            loadAdminPosts();
-                            refreshAnalytics();
-                            showNotification('পোস্ট ডিলিট হয়েছে! 🗑️', 'success');
-                        })
-                        .catch((error) => {
-                            console.error("Error deleting post:", error);
-                            showNotification('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-                        });
-                } catch (error) {
-                    console.error("Error deleting post:", error);
-                    showNotification('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-                }
-            }
+        function showPublicView() {
+            document.getElementById('adminLoginPage').classList.add('hidden');
+            document.getElementById('publicView').classList.remove('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            window.location.hash = '';
+            loadPosts();
         }
-
-        function deleteDraft(draftId) {
-            if (!firebaseReady || !db) return;
-
-            if (confirm('এই ড্রাফটটি কি সত্যিই ডিলিট করতে চান?')) {
-                try {
-                    db.collection('posts').doc(draftId).delete()
-                        .then(() => {
-                            updateDraftCount();
-                            loadDrafts();
-                            refreshAnalytics();
-                            showNotification('ড্রাফট ডিলিট হয়েছে! 🗑️', 'success');
-                        })
-                        .catch((error) => {
-                            console.error("Error deleting draft:", error);
-                            showNotification('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-                        });
-                } catch (error) {
-                    console.error("Error deleting draft:", error);
-                    showNotification('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।', 'error');
-                }
-            }
+        function showAdminDashboard() {
+            document.getElementById('adminLoginPage').classList.add('hidden');
+            document.getElementById('publicView').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            window.location.hash = 'admin';
+            updateDraftCount();
         }
-
-        // ===== INTERACTION FUNCTIONS =====
-        function likePost(postId) {
-            showNotification('পোস্টটি পছন্দ হয়েছে! 👍', 'success');
-        }
-
-        function sharePost(postId, title) {
-            if (navigator.share) {
-                navigator.share({
-                    title: title,
-                    text: 'এই পোস্টটি দেখুন: ' + title,
-                    url: window.location.href
-                });
+        function goToPublicView() { showPublicView(); }
+        function checkUserId() {
+            const userId = document.getElementById('userId').value.trim();
+            if (userId === 'admin') {
+                currentUserId = userId;
+                document.getElementById('userIdStep').classList.add('hidden');
+                document.getElementById('passwordStep').classList.remove('hidden');
+                document.getElementById('adminPassword').focus();
             } else {
-                // Fallback for browsers that don't support Web Share API
-                const url = window.location.href;
-                navigator.clipboard.writeText(url).then(() => {
-                    showNotification('লিংক কপি হয়েছে! 📋', 'success');
-                }).catch(() => {
-                    showNotification('শেয়ার করার জন্য URL: ' + url, 'success');
-                });
+                alert('ভুল ইউজার ID! ডেমো ইউজার ID: admin');
             }
         }
-
-        // ===== EVENT LISTENERS =====
-        document.getElementById('userId').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                checkUserId();
+        function goBackToUserId() {
+            document.getElementById('userIdStep').classList.remove('hidden');
+            document.getElementById('passwordStep').classList.add('hidden');
+            document.getElementById('adminPassword').value = '';
+        }
+        function checkPassword() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === 'admin123') {
+                isLoggedIn = true;
+                showAdminDashboard();
+                document.getElementById('postTitle').focus();
+            } else {
+                alert('ভুল পাসওয়ার্ড! ডেমো পাসওয়ার্ড: admin123');
             }
+        }
+        function logout() {
+            isLoggedIn = false;
+            currentUserId = '';
+            document.getElementById('userId').value = '';
+            document.getElementById('adminPassword').value = '';
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+            goBackToUserId();
+            showAdminLogin();
+        }
+
+        // Handle Enter key in input fields
+        document.getElementById('userId').addEventListener('keypress', function (e) { if (e.key === 'Enter') { checkUserId(); } });
+        document.getElementById('adminPassword').addEventListener('keypress', function (e) { if (e.key === 'Enter') { checkPassword(); } });
+
+        // Handle URL hash changes
+        window.addEventListener('hashchange', function () {
+            if (window.location.hash === '#admin') { showAdminLogin(); } else { showPublicView(); }
         });
 
-        document.getElementById('adminPassword').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                checkPassword();
-            }
-        });
-
-        window.addEventListener('hashchange', checkUrlHash);
-
-        // ===== INITIALIZATION =====
+        // Load on page load
         document.addEventListener('DOMContentLoaded', function () {
-            initializePage();
+            if (window.location.hash === '#admin') { showAdminLogin(); } else { showPublicView(); }
         });
     </script>
-    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96ae3670156933bc',t:'MTc1NDQ3OTkzNi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>
