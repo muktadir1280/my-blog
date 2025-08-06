@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="bn">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>আমার ব্যক্তিগত ব্লগ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Noto Sans Bengali', sans-serif;
+        }
+
+        .post-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .admin-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-container {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <!-- Admin Login Page (Hidden by default) -->
+    <div id="adminLoginPage" class="hidden login-container flex items-center justify-center">
+        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">অ্যাডমিন লগইন</h1>
+                <p class="text-gray-600">আপনার ব্লগ ড্যাশবোর্ডে প্রবেশ করুন</p>
+            </div>
+
+            <!-- Step 1: User ID -->
+            <div id="userIdStep">
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ইউজার ID / ইমেইল</label>
+                    <input type="text" id="userId" placeholder="আপনার ইউজার ID লিখুন"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                </div>
+                <button onclick="checkUserId()"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors">
+                    পরবর্তী ধাপ →
+                </button>
+                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো ইউজার ID: admin</p>
+            </div>
+
+            <!-- Step 2: Password -->
+            <div id="passwordStep" class="hidden">
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-gray-700">পাসওয়ার্ড</label>
+                        <button onclick="goBackToUserId()" class="text-sm text-blue-600 hover:text-blue-800">← ফিরে
+                            যান</button>
+                    </div>
+                    <input type="password" id="adminPassword" placeholder="আপনার পাসওয়ার্ড লিখুন"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                </div>
+                <button onclick="checkPassword()"
+                    class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors">
+                    লগইন করুন
+                </button>
+                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো পাসওয়ার্ড: admin123</p>
+            </div>
+
+            <div class="mt-6 text-center">
+                <button onclick="goToPublicView()" class="text-sm text-gray-600 hover:text-gray-800">
+                    পাবলিক ব্লগ দেখুন →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Public Blog View -->
+    <div id="publicView">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-4xl mx-auto px-4 py-6">
+                <div class="text-center">
+                    <h1 class="text-3xl font-bold text-gray-900">আমার ব্যক্তিগত ব্লগ</h1>
+                    <p class="text-gray-600 mt-1">আমার চিন্তাভাবনা ও অভিজ্ঞতা</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-4xl mx-auto px-4 py-8">
+            <div id="postsContainer">
+                <!-- Posts will be loaded here -->
+            </div>
+
+            <div id="loadingPosts" class="text-center py-16">
+                <div class="loading mx-auto mb-4"></div>
+                <p class="text-gray-500">পোস্ট লোড হচ্ছে...</p>
+            </div>
+
+            <div id="noPosts" class="hidden text-center py-16">
+                <div class="text-6xl mb-4">📝</div>
+                <h3 class="text-xl font-semibold text-gray-700 mb-2">এখনো কোনো পোস্ট নেই</h3>
+                <p class="text-gray-500">শীঘ্রই নতুন পোস্ট আসবে</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Admin Dashboard -->
+    <div id="adminDashboard" class="hidden">
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-6xl mx-auto px-4 py-6">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">অ্যাডমিন ড্যাশবোর্ড</h1>
+                        <p class="text-gray-600 mt-1">আপনার ব্লগ পরিচালনা করুন</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="goToPublicView()"
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            🌐 পাবলিক ভিউ
+                        </button>
+                        <button onclick="logout()"
+                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            লগআউট
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="max-w-6xl mx-auto px-4 py-8">
+            <div class="bg-white rounded-xl shadow-lg p-6">
+                <!-- Dashboard Navigation -->
+                <div class="flex border-b border-gray-200 mb-6 overflow-x-auto">
+                    <button onclick="showTab('newPost')" id="newPostTab"
+                        class="px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">
+                        ✍️ নতুন পোস্ট
+                    </button>
+                    <button onclick="showTab('managePosts')" id="managePostsTab"
+                        class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
+                        📋 পোস্ট ম্যানেজ করুন
+                    </button>
+                    <button onclick="showTab('drafts')" id="draftsTab"
+                        class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
+                        📄 ড্রাফট (<span id="draftCount">0</span>)
+                    </button>
+                </div>
+
+                <!-- New Post Tab -->
+                <div id="newPostContent">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">নতুন পোস্ট লিখুন</h3>
+                    <input type="text" id="postTitle" placeholder="পোস্টের শিরোনাম"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4">
+                    <textarea id="postContent" placeholder="আপনার পোস্ট এখানে লিখুন..."
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4 h-40 resize-none"></textarea>
+                    <div class="flex gap-3">
+                        <button onclick="publishPost()"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
+                            📝 পোস্ট করুন
+                        </button>
+                        <button onclick="saveDraft()"
+                            class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors">
+                            💾 ড্রাফট সেভ করুন
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Manage Posts Tab -->
+                <div id="managePostsContent" class="hidden">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">প্রকাশিত পোস্টসমূহ</h3>
+                    <div id="adminPostsList">
+                        <!-- Posts will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Drafts Tab -->
+                <div id="draftsContent" class="hidden">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-4">ড্রাফট পোস্টসমূহ</h3>
+                    <div id="draftsList">
+                        <!-- Drafts will be loaded here -->
+                    </div>
+                </div>
+
+                <!-- Edit Post Modal -->
+                <div id="editModal"
+                    class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">পোস্ট এডিট করুন</h3>
+                        <input type="text" id="editTitle" placeholder="পোস্টের শিরোনাম"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4">
+                        <textarea id="editContent" placeholder="আপনার পোস্ট এখানে লিখুন..."
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4 h-40 resize-none"></textarea>
+
+                        <!-- Date and Time Settings -->
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                            <h4 class="font-medium text-gray-800 mb-3">📅 তারিখ ও সময় সেটিংস</h4>
+                            <div class="flex items-center mb-3">
+                                <input type="checkbox" id="useCurrentDateTime" checked onchange="toggleDateTimeInputs()"
+                                    class="mr-2">
+                                <label for="useCurrentDateTime" class="text-sm text-gray-700">বর্তমান তারিখ ও সময়
+                                    ব্যবহার করুন</label>
+                            </div>
+                            <div id="customDateTimeInputs" class="hidden">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">তারিখ</label>
+                                        <input type="date" id="customDate"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">সময়</label>
+                                        <input type="time" id="customTime"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                    </div>
+                                </div>
+                                <div class="mt-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">কাস্টম তারিখ
+                                        (বাংলায়)</label>
+                                    <input type="text" id="customBengaliDate" placeholder="যেমন: ১৫ জানুয়ারি, ২০২৪"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                    <p class="text-xs text-gray-500 mt-1">খালি রাখলে ইংরেজি তারিখ বাংলায় রূপান্তর হবে
+                                    </p>
+                                </div>
+                                <div class="mt-3">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">কাস্টম সময়
+                                        (বাংলায়)</label>
+                                    <input type="text" id="customBengaliTime" placeholder="যেমন: দুপুর ২:৩০"
+                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                                    <p class="text-xs text-gray-500 mt-1">খালি রাখলে ইংরেজি সময় বাংলায় রূপান্তর হবে
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button onclick="saveEditedPost()"
+                                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors">
+                                💾 সেভ করুন
+                            </button>
+                            <button onclick="closeEditModal()"
+                                class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
+                                বাতিল
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyAnqlWmB3YL4lqoy_YeE4mD3ELk-5sUW8Q",
+            authDomain: "muktadir-s-personal-blog.firebaseapp.com",
+            projectId: "muktadir-s-personal-blog",
+            storageBucket: "muktadir-s-personal-blog.firebasestorage.app",
+            messagingSenderId: "868249534030",
+            appId: "1:868249534030:web:4b790381ba8491fb998d1f",
+            measurementId: "G-CY0GW8NP1K"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        console.log("Firebase connected successfully!");
+
+        // Make Firebase functions available globally
+        window.db = db;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.getDocs = getDocs;
+        window.doc = doc;
+        window.updateDoc = updateDoc;
+        window.deleteDoc = deleteDoc;
+        window.query = query;
+        window.orderBy = orderBy;
+        window.where = where;
+    </script>
+
+    <script>
+        // Global variables
+        let isLoggedIn = false;
+        let editingPostId = null;
+        let editingDraftId = null;
+        let currentUserId = '';
+
+        // Check URL hash on page load
+        function checkUrlHash() {
+            if (window.location.hash === '#admin') {
+                showAdminLogin();
+            } else {
+                showPublicView();
+            }
+        }
+
+        function showAdminLogin() {
+            document.getElementById('adminLoginPage').classList.remove('hidden');
+            document.getElementById('publicView').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('userId').focus();
+        }
+
+        function showPublicView() {
+            document.getElementById('adminLoginPage').classList.add('hidden');
+            document.getElementById('publicView').classList.remove('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            window.location.hash = '';
+            loadPosts();
+        }
+
+        function showAdminDashboard() {
+            document.getElementById('adminLoginPage').classList.add('hidden');
+            document.getElementById('publicView').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            window.location.hash = 'admin';
+            updateDraftCount();
+        }
+
+        function goToPublicView() {
+            showPublicView();
+        }
+
+        function checkUserId() {
+            const userId = document.getElementById('userId').value.trim();
+
+            if (userId === 'admin') {
+                currentUserId = userId;
+                document.getElementById('userIdStep').classList.add('hidden');
+                document.getElementById('passwordStep').classList.remove('hidden');
+                document.getElementById('adminPassword').focus();
+            } else {
+                alert('ভুল ইউজার ID! ডেমো ইউজার ID: admin');
+            }
+        }
+
+        function goBackToUserId() {
+            document.getElementById('userIdStep').classList.remove('hidden');
+            document.getElementById('passwordStep').classList.add('hidden');
+            document.getElementById('adminPassword').value = '';
+        }
+
+        function checkPassword() {
+            const password = document.getElementById('adminPassword').value;
+
+            if (password === 'admin123') {
+                isLoggedIn = true;
+                showAdminDashboard();
+                document.getElementById('postTitle').focus();
+            } else {
+                alert('ভুল পাসওয়ার্ড! ডেমো পাসওয়ার্ড: admin123');
+            }
+        }
+
+        function logout() {
+            isLoggedIn = false;
+            currentUserId = '';
+            document.getElementById('userId').value = '';
+            document.getElementById('adminPassword').value = '';
+            document.getElementById('postTitle').value = '';
+            document.getElementById('postContent').value = '';
+            goBackToUserId();
+            showAdminLogin();
+        }
+
+        // Firebase Functions
+        async function loadPosts() {
+            try {
+                document.getElementById('loadingPosts').classList.remove('hidden');
+                document.getElementById('postsContainer').innerHTML = '';
+                document.getElementById('noPosts').classList.add('hidden');
+
+                const q = query(collection(db, 'posts'), where('status', '==', 'published'), orderBy('timestamp', 'desc'));
+                const querySnapshot = await getDocs(q);
+
+                document.getElementById('loadingPosts').classList.add('hidden');
+
+                if (querySnapshot.empty) {
+                    document.getElementById('noPosts').classList.remove('hidden');
+                    return;
+                }
+
+                const posts = [];
+                querySnapshot.forEach((doc) => {
+                    posts.push({ id: doc.id, ...doc.data() });
+                });
+
+                const container = document.getElementById('postsContainer');
+                container.innerHTML = posts.map(post => `
+                    <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
+                        <header class="mb-4">
+                            <h2 class="text-2xl font-bold text-gray-900 mb-2">${post.title}</h2>
+                            <div class="flex items-center text-sm text-gray-500">
+                                <span class="mr-4">📅 ${post.date}</span>
+                                <span>🕐 ${post.time}</span>
+                            </div>
+                        </header>
+                        <div class="prose prose-lg max-w-none">
+                            <p class="text-gray-700 leading-relaxed">${post.content}</p>
+                        </div>
+                        <footer class="mt-6 pt-4 border-t border-gray-100">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                    <span class="flex items-center">
+                                        <span class="mr-1">👁️</span>
+                                        ${Math.floor(Math.random() * 100) + 20} বার দেখা হয়েছে
+                                    </span>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                        👍 পছন্দ
+                                    </button>
+                                    <button class="text-green-600 hover:text-green-800 text-sm font-medium">
+                                        📤 শেয়ার
+                                    </button>
+                                </div>
+                            </div>
+                        </footer>
+                    </article>
+                `).join('');
+            } catch (error) {
+                console.error("Error loading posts:", error);
+                document.getElementById('loadingPosts').classList.add('hidden');
+                document.getElementById('noPosts').classList.remove('hidden');
+            }
+        }
+
+        async function publishPost() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+
+            if (!title || !content) {
+                alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
+                return;
+            }
+
+            try {
+                const now = new Date();
+                const bengaliDate = now.toLocaleDateString('bn-BD');
+                const bengaliTime = now.toLocaleTimeString('bn-BD', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+
+                const newPost = {
+                    title: title,
+                    content: content,
+                    date: bengaliDate,
+                    time: bengaliTime,
+                    status: 'published',
+                    timestamp: now
+                };
+
+                await addDoc(collection(db, 'posts'), newPost);
+
+                // Clear form
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postContent').value = '';
+
+                alert('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉');
+            } catch (error) {
+                console.error("Error publishing post:", error);
+                alert('পোস্ট প্রকাশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+            }
+        }
+
+        async function saveDraft() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+
+            if (!title && !content) {
+                alert('অন্তত শিরোনাম বা কন্টেন্ট একটি লিখতে হবে!');
+                return;
+            }
+
+            try {
+                const now = new Date();
+                const bengaliDate = now.toLocaleDateString('bn-BD');
+                const bengaliTime = now.toLocaleTimeString('bn-BD', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+
+                const newDraft = {
+                    title: title || 'শিরোনামহীন ড্রাফট',
+                    content: content,
+                    date: bengaliDate,
+                    time: bengaliTime,
+                    status: 'draft',
+                    timestamp: now
+                };
+
+                await addDoc(collection(db, 'posts'), newDraft);
+
+                updateDraftCount();
+
+                // Clear form
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postContent').value = '';
+
+                alert('ড্রাফট সফলভাবে সেভ হয়েছে! 💾');
+            } catch (error) {
+                console.error("Error saving draft:", error);
+                alert('ড্রাফট সেভে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+            }
+        }
+
+        function showTab(tabName) {
+            // Hide all tabs
+            document.getElementById('newPostContent').classList.add('hidden');
+            document.getElementById('managePostsContent').classList.add('hidden');
+            document.getElementById('draftsContent').classList.add('hidden');
+
+            // Reset all tab buttons
+            document.getElementById('newPostTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap';
+            document.getElementById('managePostsTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
+            document.getElementById('draftsTab').className = 'px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap';
+
+            // Show selected tab
+            if (tabName === 'newPost') {
+                document.getElementById('newPostContent').classList.remove('hidden');
+                document.getElementById('newPostTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap';
+            } else if (tabName === 'managePosts') {
+                document.getElementById('managePostsContent').classList.remove('hidden');
+                document.getElementById('managePostsTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap';
+                loadAdminPosts();
+            } else if (tabName === 'drafts') {
+                document.getElementById('draftsContent').classList.remove('hidden');
+                document.getElementById('draftsTab').className = 'px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap';
+                loadDrafts();
+            }
+        }
+
+        async function loadAdminPosts() {
+            try {
+                const q = query(collection(db, 'posts'), where('status', '==', 'published'), orderBy('timestamp', 'desc'));
+                const querySnapshot = await getDocs(q);
+
+                const container = document.getElementById('adminPostsList');
+
+                if (querySnapshot.empty) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
+                    return;
+                }
+
+                const posts = [];
+                querySnapshot.forEach((doc) => {
+                    posts.push({ id: doc.id, ...doc.data() });
+                });
+
+                container.innerHTML = posts.map(post => `
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-2">${post.title}</h4>
+                                <p class="text-gray-600 text-sm mb-2">${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
+                                <div class="text-xs text-gray-500">
+                                    📅 ${post.date} • 🕐 ${post.time}
+                                </div>
+                            </div>
+                            <div class="flex gap-2 ml-4">
+                                <button onclick="editPost('${post.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    ✏️ এডিট
+                                </button>
+                                <button onclick="deletePost('${post.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    🗑️ ডিলিট
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error("Error loading admin posts:", error);
+            }
+        }
+
+        async function loadDrafts() {
+            try {
+                const q = query(collection(db, 'posts'), where('status', '==', 'draft'), orderBy('timestamp', 'desc'));
+                const querySnapshot = await getDocs(q);
+
+                const container = document.getElementById('draftsList');
+
+                if (querySnapshot.empty) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
+                    return;
+                }
+
+                const drafts = [];
+                querySnapshot.forEach((doc) => {
+                    drafts.push({ id: doc.id, ...doc.data() });
+                });
+
+                container.innerHTML = drafts.map(draft => `
+                    <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-2">${draft.title}</h4>
+                                <p class="text-gray-600 text-sm mb-2">${draft.content ? draft.content.substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'কোনো কন্টেন্ট নেই'}</p>
+                                <div class="text-xs text-gray-500">
+                                    📅 ${draft.date} • 🕐 ${draft.time} • 📄 ড্রাফট
+                                </div>
+                            </div>
+                            <div class="flex gap-2 ml-4">
+                                <button onclick="editDraft('${draft.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    ✏️ এডিট
+                                </button>
+                                <button onclick="publishDraft('${draft.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    📝 পাবলিশ
+                                </button>
+                                <button onclick="deleteDraft('${draft.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    🗑️ ডিলিট
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error("Error loading drafts:", error);
+            }
+        }
+
+        async function updateDraftCount() {
+            try {
+                const q = query(collection(db, 'posts'), where('status', '==', 'draft'));
+                const querySnapshot = await getDocs(q);
+                document.getElementById('draftCount').textContent = querySnapshot.size;
+            } catch (error) {
+                console.error("Error updating draft count:", error);
+            }
+        }
+
+        async function editPost(postId) {
+            try {
+                const postDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', postId)));
+                if (postDoc.empty) return;
+
+                const post = { id: postId, ...postDoc.docs[0].data() };
+
+                editingPostId = postId;
+                editingDraftId = null;
+                document.getElementById('editTitle').value = post.title;
+                document.getElementById('editContent').value = post.content;
+                document.getElementById('editModal').classList.remove('hidden');
+            } catch (error) {
+                console.error("Error loading post for edit:", error);
+            }
+        }
+
+        async function editDraft(draftId) {
+            try {
+                const draftDoc = await getDocs(query(collection(db, 'posts'), where('__name__', '==', draftId)));
+                if (draftDoc.empty) return;
+
+                const draft = { id: draftId, ...draftDoc.docs[0].data() };
+
+                editingDraftId = draftId;
+                editingPostId = null;
+                document.getElementById('editTitle').value = draft.title;
+                document.getElementById('editContent').value = draft.content;
+                document.getElementById('editModal').classList.remove('hidden');
+            } catch (error) {
+                console.error("Error loading draft for edit:", error);
+            }
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            editingPostId = null;
+            editingDraftId = null;
+            document.getElementById('editTitle').value = '';
+            document.getElementById('editContent').value = '';
+
+            // Reset date time settings
+            document.getElementById('useCurrentDateTime').checked = true;
+            document.getElementById('customDateTimeInputs').classList.add('hidden');
+            document.getElementById('customDate').value = '';
+            document.getElementById('customTime').value = '';
+            document.getElementById('customBengaliDate').value = '';
+            document.getElementById('customBengaliTime').value = '';
+        }
+
+        function toggleDateTimeInputs() {
+            const checkbox = document.getElementById('useCurrentDateTime');
+            const customInputs = document.getElementById('customDateTimeInputs');
+
+            if (checkbox.checked) {
+                customInputs.classList.add('hidden');
+            } else {
+                customInputs.classList.remove('hidden');
+                // Set current date and time as default
+                const now = new Date();
+                document.getElementById('customDate').value = now.toISOString().split('T')[0];
+                document.getElementById('customTime').value = now.toTimeString().slice(0, 5);
+            }
+        }
+
+        function convertToBengaliDateTime(date, time) {
+            // Convert English date to Bengali
+            const bengaliMonths = {
+                'January': 'জানুয়ারি', 'February': 'ফেব্রুয়ারি', 'March': 'মার্চ',
+                'April': 'এপ্রিল', 'May': 'মে', 'June': 'জুন',
+                'July': 'জুলাই', 'August': 'আগস্ট', 'September': 'সেপ্টেম্বর',
+                'October': 'অক্টোবর', 'November': 'নভেম্বর', 'December': 'ডিসেম্বর'
+            };
+
+            const bengaliNumbers = {
+                '0': '০', '1': '১', '2': '২', '3': '৩', '4': '৪',
+                '5': '৫', '6': '৬', '7': '৭', '8': '৮', '9': '৯'
+            };
+
+            // Convert date
+            const dateObj = new Date(date);
+            const day = dateObj.getDate();
+            const month = dateObj.toLocaleDateString('en-US', { month: 'long' });
+            const year = dateObj.getFullYear();
+
+            let bengaliDate = `${day} ${bengaliMonths[month]}, ${year}`;
+            bengaliDate = bengaliDate.replace(/\d/g, digit => bengaliNumbers[digit]);
+
+            // Convert time
+            const [hours, minutes] = time.split(':');
+            const hour24 = parseInt(hours);
+            const hour12 = hour24 > 12 ? hour24 - 12 : (hour24 === 0 ? 12 : hour24);
+            const period = hour24 >= 12 ? 'অপরাহ্ন' : 'পূর্বাহ্ন';
+
+            // Special cases for common times
+            let bengaliTime;
+            if (hour24 === 12) {
+                bengaliTime = `দুপুর ${hour12}:${minutes}`;
+            } else if (hour24 === 0) {
+                bengaliTime = `মধ্যরাত্রি ${hour12}:${minutes}`;
+            } else if (hour24 >= 18) {
+                bengaliTime = `সন্ধ্যা ${hour12}:${minutes}`;
+            } else if (hour24 >= 12) {
+                bengaliTime = `দুপুর ${hour12}:${minutes}`;
+            } else if (hour24 >= 6) {
+                bengaliTime = `সকাল ${hour12}:${minutes}`;
+            } else {
+                bengaliTime = `রাত ${hour12}:${minutes}`;
+            }
+
+            bengaliTime = bengaliTime.replace(/\d/g, digit => bengaliNumbers[digit]);
+
+            return { date: bengaliDate, time: bengaliTime };
+        }
+
+        async function saveEditedPost() {
+            const title = document.getElementById('editTitle').value.trim();
+            const content = document.getElementById('editContent').value.trim();
+
+            if (!title || !content) {
+                alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
+                return;
+            }
+
+            try {
+                // Get date and time
+                let finalDate, finalTime;
+
+                if (document.getElementById('useCurrentDateTime').checked) {
+                    // Use current date and time
+                    const now = new Date();
+                    finalDate = now.toLocaleDateString('bn-BD') + ' (সম্পাদিত)';
+                    finalTime = now.toLocaleTimeString('bn-BD', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    });
+                } else {
+                    // Use custom date and time
+                    const customDate = document.getElementById('customDate').value;
+                    const customTime = document.getElementById('customTime').value;
+                    const customBengaliDate = document.getElementById('customBengaliDate').value.trim();
+                    const customBengaliTime = document.getElementById('customBengaliTime').value.trim();
+
+                    if (!customDate || !customTime) {
+                        alert('কাস্টম তারিখ এবং সময় দুটোই দিতে হবে!');
+                        return;
+                    }
+
+                    if (customBengaliDate && customBengaliTime) {
+                        // Use custom Bengali date and time
+                        finalDate = customBengaliDate + ' (সম্পাদিত)';
+                        finalTime = customBengaliTime;
+                    } else {
+                        // Convert English date/time to Bengali
+                        const converted = convertToBengaliDateTime(customDate, customTime);
+                        finalDate = (customBengaliDate || converted.date) + ' (সম্পাদিত)';
+                        finalTime = customBengaliTime || converted.time;
+                    }
+                }
+
+                const updateData = {
+                    title: title,
+                    content: content,
+                    date: finalDate,
+                    time: finalTime,
+                    timestamp: new Date()
+                };
+
+                if (editingPostId) {
+                    // Editing a published post
+                    await updateDoc(doc(db, 'posts', editingPostId), updateData);
+                    loadAdminPosts();
+                    alert('পোস্ট সফলভাবে আপডেট হয়েছে! ✅');
+                } else if (editingDraftId) {
+                    // Editing a draft - remove the "(সম্পাদিত)" part for drafts
+                    updateData.date = finalDate.replace(' (সম্পাদিত)', '');
+                    await updateDoc(doc(db, 'posts', editingDraftId), updateData);
+                    loadDrafts();
+                    alert('ড্রাফট সফলভাবে আপডেট হয়েছে! ✅');
+                }
+
+                closeEditModal();
+            } catch (error) {
+                console.error("Error updating post:", error);
+                alert('আপডেটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+            }
+        }
+
+        async function publishDraft(draftId) {
+            try {
+                const now = new Date();
+                const updateData = {
+                    status: 'published',
+                    date: now.toLocaleDateString('bn-BD'),
+                    time: now.toLocaleTimeString('bn-BD', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    }),
+                    timestamp: now
+                };
+
+                await updateDoc(doc(db, 'posts', draftId), updateData);
+
+                updateDraftCount();
+                loadDrafts();
+                alert('ড্রাফট সফলভাবে পাবলিশ হয়েছে! 🎉');
+            } catch (error) {
+                console.error("Error publishing draft:", error);
+                alert('পাবলিশে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+            }
+        }
+
+        async function deletePost(postId) {
+            if (confirm('এই পোস্টটি কি সত্যিই ডিলিট করতে চান?')) {
+                try {
+                    await deleteDoc(doc(db, 'posts', postId));
+                    loadAdminPosts();
+                    alert('পোস্ট ডিলিট হয়েছে! 🗑️');
+                } catch (error) {
+                    console.error("Error deleting post:", error);
+                    alert('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                }
+            }
+        }
+
+        async function deleteDraft(draftId) {
+            if (confirm('এই ড্রাফটটি কি সত্যিই ডিলিট করতে চান?')) {
+                try {
+                    await deleteDoc(doc(db, 'posts', draftId));
+                    updateDraftCount();
+                    loadDrafts();
+                    alert('ড্রাফট ডিলিট হয়েছে! 🗑️');
+                } catch (error) {
+                    console.error("Error deleting draft:", error);
+                    alert('ডিলিটে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+                }
+            }
+        }
+
+        // Handle Enter key in input fields
+        document.getElementById('userId').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                checkUserId();
+            }
+        });
+
+        document.getElementById('adminPassword').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
+        // Handle URL hash changes
+        window.addEventListener('hashchange', checkUrlHash);
+
+        // Load on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            checkUrlHash();
+        });
+    </script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96adca98c1bf814e',t:'MTc1NDQ3NTUxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+</body>
+
+</html>
