@@ -326,6 +326,16 @@
         window.query = query;
         window.orderBy = orderBy;
         window.where = where;
+
+        // Set Firebase ready flag
+        window.firebaseReady = true;
+
+        // Trigger initial load if page is already loaded
+        if (document.readyState === 'complete') {
+            if (window.location.hash !== '#admin') {
+                loadPosts();
+            }
+        }
     </script>
 
     <script>
@@ -413,9 +423,27 @@
             showAdminLogin();
         }
 
+        // Wait for Firebase to be ready
+        function waitForFirebase() {
+            return new Promise((resolve) => {
+                if (window.firebaseReady) {
+                    resolve();
+                } else {
+                    const checkFirebase = setInterval(() => {
+                        if (window.firebaseReady) {
+                            clearInterval(checkFirebase);
+                            resolve();
+                        }
+                    }, 100);
+                }
+            });
+        }
+
         // Firebase Functions
         async function loadPosts() {
             try {
+                await waitForFirebase();
+
                 document.getElementById('loadingPosts').classList.remove('hidden');
                 document.getElementById('postsContainer').innerHTML = '';
                 document.getElementById('noPosts').classList.add('hidden');
@@ -485,6 +513,8 @@
             }
 
             try {
+                await waitForFirebase();
+
                 const now = new Date();
                 const bengaliDate = now.toLocaleDateString('bn-BD');
                 const bengaliTime = now.toLocaleTimeString('bn-BD', {
@@ -525,6 +555,8 @@
             }
 
             try {
+                await waitForFirebase();
+
                 const now = new Date();
                 const bengaliDate = now.toLocaleDateString('bn-BD');
                 const bengaliTime = now.toLocaleTimeString('bn-BD', {
@@ -585,6 +617,8 @@
 
         async function loadAdminPosts() {
             try {
+                await waitForFirebase();
+
                 const q = query(collection(db, 'posts'), where('status', '==', 'published'), orderBy('timestamp', 'desc'));
                 const querySnapshot = await getDocs(q);
 
@@ -623,11 +657,15 @@
                 `).join('');
             } catch (error) {
                 console.error("Error loading admin posts:", error);
+                const container = document.getElementById('adminPostsList');
+                container.innerHTML = '<p class="text-red-500 text-center py-8">পোস্ট লোড করতে সমস্যা হয়েছে</p>';
             }
         }
 
         async function loadDrafts() {
             try {
+                await waitForFirebase();
+
                 const q = query(collection(db, 'posts'), where('status', '==', 'draft'), orderBy('timestamp', 'desc'));
                 const querySnapshot = await getDocs(q);
 
@@ -669,16 +707,21 @@
                 `).join('');
             } catch (error) {
                 console.error("Error loading drafts:", error);
+                const container = document.getElementById('draftsList');
+                container.innerHTML = '<p class="text-red-500 text-center py-8">ড্রাফট লোড করতে সমস্যা হয়েছে</p>';
             }
         }
 
         async function updateDraftCount() {
             try {
+                await waitForFirebase();
+
                 const q = query(collection(db, 'posts'), where('status', '==', 'draft'));
                 const querySnapshot = await getDocs(q);
                 document.getElementById('draftCount').textContent = querySnapshot.size;
             } catch (error) {
                 console.error("Error updating draft count:", error);
+                document.getElementById('draftCount').textContent = '0';
             }
         }
 
@@ -944,7 +987,7 @@
             checkUrlHash();
         });
     </script>
-    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96adca98c1bf814e',t:'MTc1NDQ3NTUxOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
+    <script>(function () { function c() { var b = a.contentDocument || a.contentWindow.document; if (b) { var d = b.createElement('script'); d.innerHTML = "window.__CF$cv$params={r:'96ae0223a10e814e',t:'MTc1NDQ3Nzc5NC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);"; b.getElementsByTagName('head')[0].appendChild(d) } } if (document.body) { var a = document.createElement('iframe'); a.height = 1; a.width = 1; a.style.position = 'absolute'; a.style.top = 0; a.style.left = 0; a.style.border = 'none'; a.style.visibility = 'hidden'; document.body.appendChild(a); if ('loading' !== document.readyState) c(); else if (window.addEventListener) document.addEventListener('DOMContentLoaded', c); else { var e = document.onreadystatechange || function () { }; document.onreadystatechange = function (b) { e(b); 'loading' !== document.readyState && (document.onreadystatechange = e, c()) } } } })();</script>
 </body>
 
 </html>
