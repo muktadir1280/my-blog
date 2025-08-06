@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>আমার ব্যক্তিগত ব্লগ</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap');
 
@@ -20,6 +23,10 @@
         .post-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .admin-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
 
         .fade-in {
@@ -43,50 +50,37 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
     </style>
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
 </head>
 
 <body class="bg-gray-50 min-h-screen">
-
-    <!-- Admin Login Page (Hidden by default) -->
+    <!-- Login Page -->
     <div id="adminLoginPage" class="hidden login-container flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
             <div class="text-center mb-8">
                 <h1 class="text-3xl font-bold text-gray-900 mb-2">অ্যাডমিন লগইন</h1>
                 <p class="text-gray-600">আপনার ব্লগ ড্যাশবোর্ডে প্রবেশ করুন</p>
             </div>
-            <div id="userIdStep">
+            <form id="firebaseLoginForm">
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">ইউজার ID / ইমেইল</label>
-                    <input type="text" id="userId" placeholder="আপনার ইউজার ID লিখুন"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">ইমেইল</label>
+                    <input type="email" id="loginEmail" placeholder="Owner Email"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        required>
                 </div>
-                <button onclick="checkUserId()"
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">পাসওয়ার্ড</label>
+                    <input type="password" id="loginPassword" placeholder="Password"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                        required>
+                </div>
+                <button type="submit"
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors">
-                    পরবর্তী ধাপ →
-                </button>
-                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো ইউজার ID: admin</p>
-            </div>
-            <div id="passwordStep" class="hidden">
-                <div class="mb-6">
-                    <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-medium text-gray-700">পাসওয়ার্ড</label>
-                        <button onclick="goBackToUserId()" class="text-sm text-blue-600 hover:text-blue-800">← ফিরে
-                            যান</button>
-                    </div>
-                    <input type="password" id="adminPassword" placeholder="আপনার পাসওয়ার্ড লিখুন"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                </div>
-                <button onclick="checkPassword()"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors">
                     লগইন করুন
                 </button>
-                <p class="text-sm text-gray-500 mt-4 text-center">ডেমো পাসওয়ার্ড: admin123</p>
-            </div>
+                <div id="loginError" class="text-red-600 text-center mt-3"></div>
+            </form>
             <div class="mt-6 text-center">
-                <button onclick="goToPublicView()" class="text-sm text-gray-600 hover:text-gray-800">
+                <button type="button" onclick="goToPublicView()" class="text-sm text-gray-600 hover:text-gray-800">
                     পাবলিক ব্লগ দেখুন →
                 </button>
             </div>
@@ -100,12 +94,16 @@
                 <div class="text-center">
                     <h1 class="text-3xl font-bold text-gray-900">আমার ব্যক্তিগত ব্লগ</h1>
                     <p class="text-gray-600 mt-1">আমার চিন্তাভাবনা ও অভিজ্ঞতা</p>
+                    <button onclick="showAdminLogin()"
+                        class="mt-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                        ✍️ লগইন (Owner)
+                    </button>
                 </div>
             </div>
         </header>
         <main class="max-w-4xl mx-auto px-4 py-8">
             <div id="postsContainer"></div>
-            <div id="noPosts" class="text-center py-16">
+            <div id="noPosts" class="text-center py-16 hidden">
                 <div class="text-6xl mb-4">📝</div>
                 <h3 class="text-xl font-semibold text-gray-700 mb-2">এখনো কোনো পোস্ট নেই</h3>
                 <p class="text-gray-500">শীঘ্রই নতুন পোস্ট আসবে</p>
@@ -124,10 +122,13 @@
                     </div>
                     <div class="flex gap-3">
                         <button onclick="goToPublicView()"
-                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">🌐
-                            পাবলিক ভিউ</button>
+                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            🌐 পাবলিক ভিউ
+                        </button>
                         <button onclick="logout()"
-                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">লগআউট</button>
+                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            লগআউট
+                        </button>
                     </div>
                 </div>
             </div>
@@ -148,6 +149,7 @@
                         📄 ড্রাফট (<span id="draftCount">0</span>)
                     </button>
                 </div>
+                <!-- New Post Tab -->
                 <div id="newPostContent">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">নতুন পোস্ট লিখুন</h3>
                     <input type="text" id="postTitle" placeholder="পোস্টের শিরোনাম"
@@ -164,15 +166,19 @@
                             💾 ড্রাফট সেভ করুন
                         </button>
                     </div>
+                    <div id="adminPostError" class="text-red-600 mt-3"></div>
                 </div>
+                <!-- Manage Posts Tab -->
                 <div id="managePostsContent" class="hidden">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">প্রকাশিত পোস্টসমূহ</h3>
                     <div id="adminPostsList"></div>
                 </div>
+                <!-- Drafts Tab -->
                 <div id="draftsContent" class="hidden">
                     <h3 class="text-xl font-semibold text-gray-800 mb-4">ড্রাফট পোস্টসমূহ</h3>
                     <div id="draftsList"></div>
                 </div>
+                <!-- Edit Post Modal -->
                 <div id="editModal"
                     class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                     <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
@@ -191,6 +197,7 @@
                                 বাতিল
                             </button>
                         </div>
+                        <div id="editModalError" class="text-red-600 mt-3"></div>
                     </div>
                 </div>
             </div>
@@ -198,7 +205,7 @@
     </div>
 
     <script>
-        // Firebase config with your credentials
+        // ----------- Firebase Config & Init -----------
         const firebaseConfig = {
             apiKey: "AIzaSyAnqlWmB3YL4lqoy_YeE4mD3ELk-5sUW8Q",
             authDomain: "muktadir-s-personal-blog.firebaseapp.com",
@@ -210,190 +217,107 @@
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        const auth = firebase.auth();
 
-        let posts = [];
-        let drafts = [];
-        let isLoggedIn = false;
-        let editingPostId = null;
-        let editingDraftId = null;
-        let currentUserId = '';
+        // Owner email (change if needed)
+        const OWNER_EMAIL = "muktadir1280@gmail.com";
 
-        // CRUD functions (Firestore)
-        async function fetchPosts() {
-            const snap = await db.collection("posts").orderBy("createdAt", "desc").get();
-            posts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // ----------- UI Switching & Auth State -----------
+        function showAdminLogin() {
+            document.getElementById('adminLoginPage').classList.remove('hidden');
+            document.getElementById('publicView').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            document.getElementById('loginEmail').focus();
         }
-        async function fetchDrafts() {
-            const snap = await db.collection("drafts").orderBy("createdAt", "desc").get();
-            drafts = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        function goToPublicView() {
+            document.getElementById('adminLoginPage').classList.add('hidden');
+            document.getElementById('publicView').classList.remove('hidden');
+            document.getElementById('adminDashboard').classList.add('hidden');
+            loadPublicPosts();
         }
-        async function addPostToFirestore(title, content) {
-            const now = new Date();
-            await db.collection("posts").add({
-                title,
-                content,
-                date: now.toLocaleDateString('bn-BD'),
-                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                status: 'published',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+        function showAdminDashboard() {
+            document.getElementById('adminLoginPage').classList.add('hidden');
+            document.getElementById('publicView').classList.add('hidden');
+            document.getElementById('adminDashboard').classList.remove('hidden');
+            showTab('newPost');
+            loadAdminPosts();
+            loadDrafts();
         }
-        async function addDraftToFirestore(title, content) {
-            const now = new Date();
-            await db.collection("drafts").add({
-                title: title || 'শিরোনামহীন ড্রাফট',
-                content,
-                date: now.toLocaleDateString('bn-BD'),
-                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+        function logout() {
+            auth.signOut();
         }
-        async function updatePostInFirestore(postId, title, content) {
-            const now = new Date();
-            await db.collection("posts").doc(postId).update({
-                title,
-                content,
-                date: now.toLocaleDateString('bn-BD') + ' (সম্পাদিত)',
-                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
-            });
-        }
-        async function updateDraftInFirestore(draftId, title, content) {
-            const now = new Date();
-            await db.collection("drafts").doc(draftId).update({
-                title,
-                content,
-                date: now.toLocaleDateString('bn-BD'),
-                time: now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
-            });
-        }
-        async function deletePostFromFirestore(postId) {
-            await db.collection("posts").doc(postId).delete();
-        }
-        async function deleteDraftFromFirestore(draftId) {
-            await db.collection("drafts").doc(draftId).delete();
-        }
-        async function publishDraftInFirestore(draftId) {
-            const draft = drafts.find(d => d.id === draftId);
-            if (!draft || !draft.title.trim() || !draft.content.trim()) {
-                alert('ড্রাফট পাবলিশ করতে শিরোনাম এবং কন্টেন্ট দুটোই থাকতে হবে!');
-                return;
+        // ----------- Firebase Auth Logic -----------
+        auth.onAuthStateChanged(user => {
+            if (user && user.email === OWNER_EMAIL) {
+                showAdminDashboard();
+            } else {
+                goToPublicView();
             }
-            await addPostToFirestore(draft.title, draft.content);
-            await deleteDraftFromFirestore(draftId);
-        }
+        });
+        document.getElementById('firebaseLoginForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            auth.signInWithEmailAndPassword(email, password)
+                .catch(err => {
+                    document.getElementById('loginError').textContent = "লগইন ব্যর্থ! " + (err.message || "ইমেইল অথবা পাসওয়ার্ড ঠিক নেই।");
+                });
+        });
 
-        // UI functions
-        async function loadPosts() {
-            await fetchPosts();
+        // ----------- Firestore CRUD Functions -----------
+        // Posts: collection "posts", Drafts: collection "drafts"
+        // ----------- Public View: Load Published Posts -----------
+        function loadPublicPosts() {
             const container = document.getElementById('postsContainer');
             const noPosts = document.getElementById('noPosts');
-            const publishedPosts = posts.filter(post => post.status === 'published');
-            if (publishedPosts.length === 0) {
-                container.innerHTML = '';
-                noPosts.classList.remove('hidden');
-                return;
-            }
-            noPosts.classList.add('hidden');
-            container.innerHTML = publishedPosts.map(post => `
-                <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
-                    <header class="mb-4">
-                        <h2 class="text-2xl font-bold text-gray-900 mb-2">${post.title}</h2>
-                        <div class="flex items-center text-sm text-gray-500">
-                            <span class="mr-4">📅 ${post.date}</span>
-                            <span>🕐 ${post.time}</span>
-                        </div>
-                    </header>
-                    <div class="prose prose-lg max-w-none">
-                        <p class="text-gray-700 leading-relaxed">${post.content}</p>
-                    </div>
-                    <footer class="mt-6 pt-4 border-t border-gray-100">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center space-x-4 text-sm text-gray-500">
-                                <span class="flex items-center">
-                                    <span class="mr-1">👁️</span>
-                                    ${Math.floor(Math.random() * 100) + 20} বার দেখা হয়েছে
-                                </span>
+            db.collection('posts').orderBy('createdAt', 'desc').get()
+                .then(snapshot => {
+                    if (snapshot.empty) {
+                        container.innerHTML = '';
+                        noPosts.classList.remove('hidden');
+                        return;
+                    }
+                    noPosts.classList.add('hidden');
+                    container.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const post = doc.data();
+                        container.innerHTML += `
+                        <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
+                            <header class="mb-4">
+                                <h2 class="text-2xl font-bold text-gray-900 mb-2">${escapeHtml(post.title)}</h2>
+                                <div class="flex items-center text-sm text-gray-500">
+                                    <span class="mr-4">📅 ${post.date || ''}</span>
+                                    <span>🕐 ${post.time || ''}</span>
+                                </div>
+                            </header>
+                            <div class="prose prose-lg max-w-none">
+                                <p class="text-gray-700 leading-relaxed">${escapeHtml(post.content)}</p>
                             </div>
-                            <div class="flex space-x-2">
-                                <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">👍 পছন্দ</button>
-                                <button class="text-green-600 hover:text-green-800 text-sm font-medium">📤 শেয়ার</button>
-                            </div>
-                        </div>
-                    </footer>
-                </article>
-            `).join('');
+                            <footer class="mt-6 pt-4 border-t border-gray-100">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                        <span class="flex items-center">
+                                            <span class="mr-1">👁️</span>
+                                            ${Math.floor(Math.random() * 100) + 20} বার দেখা হয়েছে
+                                        </span>
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                            👍 পছন্দ
+                                        </button>
+                                        <button class="text-green-600 hover:text-green-800 text-sm font-medium">
+                                            📤 শেয়ার
+                                        </button>
+                                    </div>
+                                </div>
+                            </footer>
+                        </article>
+                        `;
+                    });
+                });
         }
 
-        function updateDraftCount() {
-            document.getElementById('draftCount').textContent = drafts.length;
-        }
-
-        async function loadAdminPosts() {
-            await fetchPosts();
-            const container = document.getElementById('adminPostsList');
-            const publishedPosts = posts.filter(post => post.status === 'published');
-            if (publishedPosts.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
-                return;
-            }
-            container.innerHTML = publishedPosts.map(post => `
-                <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h4 class="font-semibold text-gray-900 mb-2">${post.title}</h4>
-                            <p class="text-gray-600 text-sm mb-2">${post.content.substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
-                            <div class="text-xs text-gray-500">
-                                📅 ${post.date} • 🕐 ${post.time}
-                            </div>
-                        </div>
-                        <div class="flex gap-2 ml-4">
-                            <button onclick="editPost('${post.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                ✏️ এডিট
-                            </button>
-                            <button onclick="deletePost('${post.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                🗑️ ডিলিট
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        async function loadDrafts() {
-            await fetchDrafts();
-            const container = document.getElementById('draftsList');
-            if (drafts.length === 0) {
-                container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
-                updateDraftCount();
-                return;
-            }
-            container.innerHTML = drafts.map(draft => `
-                <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h4 class="font-semibold text-gray-900 mb-2">${draft.title}</h4>
-                            <p class="text-gray-600 text-sm mb-2">${draft.content ? draft.content.substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'কোনো কন্টেন্ট নেই'}</p>
-                            <div class="text-xs text-gray-500">
-                                📅 ${draft.date} • 🕐 ${draft.time} • 📄 ড্রাফট
-                            </div>
-                        </div>
-                        <div class="flex gap-2 ml-4">
-                            <button onclick="editDraft('${draft.id}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                ✏️ এডিট
-                            </button>
-                            <button onclick="publishDraft('${draft.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                📝 পাবলিশ
-                            </button>
-                            <button onclick="deleteDraft('${draft.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
-                                🗑️ ডিলিট
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-            updateDraftCount();
-        }
-
+        // ----------- Admin: Tabs & Tab Switching -----------
         function showTab(tabName) {
             document.getElementById('newPostContent').classList.add('hidden');
             document.getElementById('managePostsContent').classList.add('hidden');
@@ -415,169 +339,212 @@
             }
         }
 
-        // CRUD actions: publish, save draft, edit, update, delete
-        async function publishPost() {
+        // ----------- Admin: CRUD Published Posts -----------
+        function loadAdminPosts() {
+            const container = document.getElementById('adminPostsList');
+            db.collection('posts').orderBy('createdAt', 'desc').get()
+                .then(snapshot => {
+                    if (snapshot.empty) {
+                        container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
+                        return;
+                    }
+                    container.innerHTML = '';
+                    snapshot.forEach(doc => {
+                        const post = doc.data();
+                        container.innerHTML += `
+                        <div class="bg-gray-50 rounded-lg p-4 mb-4 border flex justify-between items-start">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-2">${escapeHtml(post.title)}</h4>
+                                <p class="text-gray-600 text-sm mb-2">${escapeHtml(post.content).substring(0, 100)}${post.content.length > 100 ? '...' : ''}</p>
+                                <div class="text-xs text-gray-500">📅 ${post.date} • 🕐 ${post.time}</div>
+                            </div>
+                            <div class="flex gap-2 ml-4">
+                                <button onclick="editPost('${doc.id}', '${escapeForJs(post.title)}', '${escapeForJs(post.content)}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    ✏️ এডিট
+                                </button>
+                                <button onclick="deletePost('${doc.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                    🗑️ ডিলিট
+                                </button>
+                            </div>
+                        </div>
+                        `;
+                    });
+                });
+        }
+        function publishPost() {
             const title = document.getElementById('postTitle').value.trim();
             const content = document.getElementById('postContent').value.trim();
             if (!title || !content) {
-                alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
+                document.getElementById('adminPostError').textContent = 'শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!';
                 return;
             }
-            await addPostToFirestore(title, content);
-            document.getElementById('postTitle').value = '';
-            document.getElementById('postContent').value = '';
-            alert('পোস্ট সফলভাবে প্রকাশিত হয়েছে! 🎉');
+            const now = new Date();
+            const bengaliDate = now.toLocaleDateString('bn-BD');
+            const bengaliTime = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
+            db.collection('posts').add({
+                title, content, date: bengaliDate, time: bengaliTime,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postContent').value = '';
+                document.getElementById('adminPostError').textContent = '';
+                showTab('managePosts');
+                loadPublicPosts();
+            }).catch(err => {
+                document.getElementById('adminPostError').textContent = err.message;
+            });
         }
-        async function saveDraft() {
-            const title = document.getElementById('postTitle').value.trim();
-            const content = document.getElementById('postContent').value.trim();
-            if (!title && !content) {
-                alert('অন্তত শিরোনাম বা কন্টেন্ট একটি লিখতে হবে!');
-                return;
-            }
-            await addDraftToFirestore(title, content);
-            document.getElementById('postTitle').value = '';
-            document.getElementById('postContent').value = '';
-            alert('ড্রাফট সফলভাবে সেভ হয়েছে! 💾');
+        function deletePost(id) {
+            if (!confirm('পোস্টটি ডিলিট করতে চান?')) return;
+            db.collection('posts').doc(id).delete().then(loadAdminPosts).then(loadPublicPosts);
         }
-        function editPost(postId) {
-            const post = posts.find(p => p.id === postId);
-            if (!post) return;
-            editingPostId = postId;
-            editingDraftId = null;
-            document.getElementById('editTitle').value = post.title;
-            document.getElementById('editContent').value = post.content;
+        function editPost(id, title, content) {
+            document.getElementById('editTitle').value = title;
+            document.getElementById('editContent').value = content;
             document.getElementById('editModal').classList.remove('hidden');
+            window._editingPostId = id;
+            window._editingDraftId = null;
         }
-        function editDraft(draftId) {
-            const draft = drafts.find(d => d.id === draftId);
-            if (!draft) return;
-            editingDraftId = draftId;
-            editingPostId = null;
-            document.getElementById('editTitle').value = draft.title;
-            document.getElementById('editContent').value = draft.content;
-            document.getElementById('editModal').classList.remove('hidden');
-        }
-        function closeEditModal() {
-            document.getElementById('editModal').classList.add('hidden');
-            editingPostId = null;
-            editingDraftId = null;
-            document.getElementById('editTitle').value = '';
-            document.getElementById('editContent').value = '';
-        }
-        async function saveEditedPost() {
+        function saveEditedPost() {
             const title = document.getElementById('editTitle').value.trim();
             const content = document.getElementById('editContent').value.trim();
             if (!title || !content) {
-                alert('শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!');
+                document.getElementById('editModalError').textContent = 'শিরোনাম এবং কন্টেন্ট দুটোই লিখতে হবে!';
                 return;
             }
-            if (editingPostId) {
-                await updatePostInFirestore(editingPostId, title, content);
-                await loadAdminPosts();
-                alert('পোস্ট সফলভাবে আপডেট হয়েছে! ✅');
-            } else if (editingDraftId) {
-                await updateDraftInFirestore(editingDraftId, title, content);
-                await loadDrafts();
-                alert('ড্রাফট সফলভাবে আপডেট হয়েছে! ✅');
-            }
-            closeEditModal();
-        }
-        async function publishDraft(draftId) {
-            await publishDraftInFirestore(draftId);
-            await loadDrafts();
-            alert('ড্রাফট সফলভাবে পাবলিশ হয়েছে! 🎉');
-        }
-        async function deletePost(postId) {
-            const post = posts.find(p => p.id === postId);
-            if (!post) return;
-            if (confirm(`"${post.title}" পোস্টটি কি সত্যিই ডিলিট করতে চান?`)) {
-                await deletePostFromFirestore(postId);
-                await loadAdminPosts();
-                alert('পোস্ট ডিলিট হয়েছে! 🗑️');
+            if (window._editingPostId) {
+                db.collection('posts').doc(window._editingPostId).update({
+                    title, content,
+                    date: new Date().toLocaleDateString('bn-BD') + ' (সম্পাদিত)',
+                    time: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
+                }).then(() => {
+                    closeEditModal();
+                    loadAdminPosts();
+                    loadPublicPosts();
+                });
+            } else if (window._editingDraftId) {
+                db.collection('drafts').doc(window._editingDraftId).update({
+                    title, content,
+                    date: new Date().toLocaleDateString('bn-BD'),
+                    time: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true })
+                }).then(() => {
+                    closeEditModal();
+                    loadDrafts();
+                });
             }
         }
-        async function deleteDraft(draftId) {
-            const draft = drafts.find(d => d.id === draftId);
-            if (!draft) return;
-            if (confirm(`"${draft.title}" ড্রাফটটি কি সত্যিই ডিলিট করতে চান?`)) {
-                await deleteDraftFromFirestore(draftId);
-                await loadDrafts();
-                alert('ড্রাফট ডিলিট হয়েছে! 🗑️');
-            }
+        function closeEditModal() {
+            document.getElementById('editModal').classList.add('hidden');
+            document.getElementById('editModalError').textContent = '';
+            window._editingPostId = null;
+            window._editingDraftId = null;
         }
 
-        // Admin/Login System (unchanged)
-        function showAdminLogin() {
-            document.getElementById('adminLoginPage').classList.remove('hidden');
-            document.getElementById('publicView').classList.add('hidden');
-            document.getElementById('adminDashboard').classList.add('hidden');
-            document.getElementById('userId').focus();
-        }
-        function showPublicView() {
-            document.getElementById('adminLoginPage').classList.add('hidden');
-            document.getElementById('publicView').classList.remove('hidden');
-            document.getElementById('adminDashboard').classList.add('hidden');
-            window.location.hash = '';
-            loadPosts();
-        }
-        function showAdminDashboard() {
-            document.getElementById('adminLoginPage').classList.add('hidden');
-            document.getElementById('publicView').classList.add('hidden');
-            document.getElementById('adminDashboard').classList.remove('hidden');
-            window.location.hash = 'admin';
-            updateDraftCount();
-        }
-        function goToPublicView() { showPublicView(); }
-        function checkUserId() {
-            const userId = document.getElementById('userId').value.trim();
-            if (userId === 'admin') {
-                currentUserId = userId;
-                document.getElementById('userIdStep').classList.add('hidden');
-                document.getElementById('passwordStep').classList.remove('hidden');
-                document.getElementById('adminPassword').focus();
-            } else {
-                alert('ভুল ইউজার ID! ডেমো ইউজার ID: admin');
+        // ----------- Admin: CRUD Drafts -----------
+        function saveDraft() {
+            const title = document.getElementById('postTitle').value.trim();
+            const content = document.getElementById('postContent').value.trim();
+            if (!title && !content) {
+                document.getElementById('adminPostError').textContent = 'অন্তত শিরোনাম বা কন্টেন্ট একটি লিখতে হবে!';
+                return;
             }
+            const now = new Date();
+            const bengaliDate = now.toLocaleDateString('bn-BD');
+            const bengaliTime = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
+            db.collection('drafts').add({
+                title: title || 'শিরোনামহীন ড্রাফট', content,
+                date: bengaliDate, time: bengaliTime,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                document.getElementById('postTitle').value = '';
+                document.getElementById('postContent').value = '';
+                showTab('drafts');
+                loadDrafts();
+            });
         }
-        function goBackToUserId() {
-            document.getElementById('userIdStep').classList.remove('hidden');
-            document.getElementById('passwordStep').classList.add('hidden');
-            document.getElementById('adminPassword').value = '';
+        function loadDrafts() {
+            const container = document.getElementById('draftsList');
+            db.collection('drafts').orderBy('createdAt', 'desc').get().then(snapshot => {
+                document.getElementById('draftCount').textContent = snapshot.size;
+                if (snapshot.empty) {
+                    container.innerHTML = '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
+                    return;
+                }
+                container.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const draft = doc.data();
+                    container.innerHTML += `
+                    <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200 flex justify-between items-start">
+                        <div class="flex-1">
+                            <h4 class="font-semibold text-gray-900 mb-2">${escapeHtml(draft.title)}</h4>
+                            <p class="text-gray-600 text-sm mb-2">${draft.content ? escapeHtml(draft.content).substring(0, 100) + (draft.content.length > 100 ? '...' : '') : 'কোনো কন্টেন্ট নেই'}</p>
+                            <div class="text-xs text-gray-500">📅 ${draft.date} • 🕐 ${draft.time} • 📄 ড্রাফট</div>
+                        </div>
+                        <div class="flex gap-2 ml-4">
+                            <button onclick="editDraft('${doc.id}', '${escapeForJs(draft.title)}', '${escapeForJs(draft.content)}')" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                ✏️ এডিট
+                            </button>
+                            <button onclick="publishDraft('${doc.id}')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                📝 পাবলিশ
+                            </button>
+                            <button onclick="deleteDraft('${doc.id}')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">
+                                🗑️ ডিলিট
+                            </button>
+                        </div>
+                    </div>
+                    `;
+                });
+            });
         }
-        function checkPassword() {
-            const password = document.getElementById('adminPassword').value;
-            if (password === 'admin123') {
-                isLoggedIn = true;
-                showAdminDashboard();
-                document.getElementById('postTitle').focus();
-            } else {
-                alert('ভুল পাসওয়ার্ড! ডেমো পাসওয়ার্ড: admin123');
-            }
+        function editDraft(id, title, content) {
+            document.getElementById('editTitle').value = title;
+            document.getElementById('editContent').value = content;
+            document.getElementById('editModal').classList.remove('hidden');
+            window._editingDraftId = id;
+            window._editingPostId = null;
         }
-        function logout() {
-            isLoggedIn = false;
-            currentUserId = '';
-            document.getElementById('userId').value = '';
-            document.getElementById('adminPassword').value = '';
-            document.getElementById('postTitle').value = '';
-            document.getElementById('postContent').value = '';
-            goBackToUserId();
-            showAdminLogin();
+        function publishDraft(id) {
+            db.collection('drafts').doc(id).get().then(doc => {
+                const draft = doc.data();
+                if (!draft.title.trim() || !draft.content.trim()) {
+                    alert('ড্রাফট পাবলিশ করতে শিরোনাম এবং কন্টেন্ট দুটোই থাকতে হবে!');
+                    return;
+                }
+                db.collection('posts').add({
+                    title: draft.title, content: draft.content,
+                    date: new Date().toLocaleDateString('bn-BD'),
+                    time: new Date().toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }).then(() => {
+                    db.collection('drafts').doc(id).delete().then(() => {
+                        loadDrafts();
+                        loadAdminPosts();
+                        loadPublicPosts();
+                        showTab('managePosts');
+                        alert('ড্রাফট সফলভাবে পাবলিশ হয়েছে! 🎉');
+                    });
+                });
+            });
+        }
+        function deleteDraft(id) {
+            if (!confirm('ড্রাফটটি ডিলিট করতে চান?')) return;
+            db.collection('drafts').doc(id).delete().then(loadDrafts);
         }
 
-        // Handle Enter key in input fields
-        document.getElementById('userId').addEventListener('keypress', function (e) { if (e.key === 'Enter') { checkUserId(); } });
-        document.getElementById('adminPassword').addEventListener('keypress', function (e) { if (e.key === 'Enter') { checkPassword(); } });
+        // ----------- Helper Functions -----------
+        // JS string escaping for onclick parameters
+        function escapeForJs(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/"/g, '&quot;');
+        }
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+        }
 
-        // Handle URL hash changes
-        window.addEventListener('hashchange', function () {
-            if (window.location.hash === '#admin') { showAdminLogin(); } else { showPublicView(); }
-        });
-
-        // Load on page load
+        // ----------- On load ----------- 
         document.addEventListener('DOMContentLoaded', function () {
-            if (window.location.hash === '#admin') { showAdminLogin(); } else { showPublicView(); }
+            goToPublicView();
         });
     </script>
 </body>
