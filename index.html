@@ -625,7 +625,7 @@
             let finalDate, finalTime;
             if (document.getElementById('useCurrentDateTime').checked) {
                 const now = new Date();
-                finalDate = now.toLocaleDateString('bn-BD') + ' (সম্পাদিত)';
+                finalDate = now.toLocaleDateString('bn-BD');
                 finalTime = now.toLocaleTimeString('bn-BD', { hour: '2-digit', minute: '2-digit', hour12: true });
             } else {
                 const customDate = document.getElementById('customDate').value;
@@ -638,7 +638,7 @@
                     return;
                 }
 
-                finalDate = (customBengaliDate || customDate) + ' (সম্পাদিত)';
+                finalDate = (customBengaliDate || customDate);
                 finalTime = customBengaliTime || customTime;
             }
 
