@@ -159,7 +159,7 @@
                     </button>
                     <button onclick="showTab('managePosts')" id="managePostsTab"
                         class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
-                        📋 পোস্ট ম্যানেজ করুন
+                        📋 পোস্ট ম্যানেজ করুন (<span id="postCount">0</span>)
                     </button>
                     <button onclick="showTab('drafts')" id="draftsTab"
                         class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
@@ -494,6 +494,11 @@
             loadDrafts();
         }
 
+        async function updatePostCount() {
+            const snapshot = await db.collection('posts').get();
+            document.getElementById('postCount').textContent = snapshot.size;
+        }
+
         async function loadAdminPosts() {
             const container = document.getElementById('adminPostsList');
             const snapshot = await db.collection('posts').orderBy('createdAt', 'desc').get();
@@ -519,6 +524,8 @@
                 </div>
             </div>
         `).join('');
+            updatePostCount();
+
         }
 
         async function deletePost(docId) {
