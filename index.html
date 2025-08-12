@@ -54,21 +54,20 @@
     <div id="adminLoginPage" class="hidden login-container flex items-center justify-center">
         <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
             <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">অ্যাডমিন লগইন</h1>
-                <p class="text-gray-600">আপনার ব্লগ ড্যাশবোর্ডে প্রবেশ করুন</p>
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">স্বাগতম মুক্তাদির!</h1>
+                <p class="text-gray-600">Welcome to your Admin Dashboard</p>
             </div>
 
             <!-- Step 1: User ID (prefilled with admin email) -->
             <div id="userIdStep">
                 <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">ইউজার ইমেইল</label>
-                    <input type="text" id="userId" placeholder="আপনার ইমেইল লিখুন"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                        value="youremail@example.com">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Your Email</label>
+                    <input type="text" id="userId" placeholder="Enter your email here"
+                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
                 </div>
                 <button onclick="checkUserId()"
                     class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors">
-                    পরবর্তী ধাপ →
+                    Next Step →
                 </button>
             </div>
 
@@ -76,16 +75,16 @@
             <div id="passwordStep" class="hidden">
                 <div class="mb-6">
                     <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-medium text-gray-700">পাসওয়ার্ড</label>
-                        <button onclick="goBackToUserId()" class="text-sm text-blue-600 hover:text-blue-800">← ফিরে
-                            যান</button>
+                        <label class="block text-sm font-medium text-gray-700">Password</label>
+                        <button onclick="goBackToUserId()" class="text-sm text-blue-600 hover:text-blue-800">← Back
+                            Home</button>
                     </div>
-                    <input type="password" id="adminPassword" placeholder="আপনার পাসওয়ার্ড লিখুন"
+                    <input type="password" id="adminPassword" placeholder="Enter your password"
                         class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
                 </div>
                 <button onclick="checkPassword()"
                     class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors">
-                    লগইন করুন
+                    Log in
                 </button>
                 <!-- <p class="text-sm text-gray-500 mt-4 text-center">নোট: তুমি আগে Firebase Console-এ এই ইমেইল দিয়ে ইউজার
                     তৈরি করে
