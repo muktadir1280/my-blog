@@ -410,7 +410,7 @@
                     </header>
                     ${post.imageUrl ? `<img src="${post.imageUrl}" class="mb-4 max-h-80 w-full object-cover rounded-lg">` : ''}
                     <div class="prose prose-lg max-w-none">
-                        <p class="text-gray-700 leading-relaxed">${escapeHtml(post.content)}</p>
+                        <p style="white-space: pre-wrap;" class="text-gray-700 leading-relaxed">${escapeHtml(post.content)}</p>
                     </div>
                 </article>
             `).join('');
