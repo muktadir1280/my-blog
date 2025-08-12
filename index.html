@@ -340,13 +340,16 @@
 
         // Auth state change
         auth.onAuthStateChanged(user => {
-            if (user) {
-                // logged in
-                showAdminDashboard();
+            if (window.location.hash === '#admin') {
+                if (user) {
+                    showAdminDashboard();
+                } else {
+                    showAdminLogin();
+                }
             } else {
-                // not logged in
-                showAdminLogin();
+                showPublicView();
             }
+
         });
 
         // View switches
