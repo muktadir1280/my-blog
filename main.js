@@ -37,12 +37,69 @@ const app = {
   // INITIALIZATION
   // ============================================
   init() {
+    // CRITICAL: Force logout on page load for security
+    // This prevents auto-login and ensures only manual login works
+    this.forceLogout();
+
+    // Setup auth listener
     this.setupAuthListener();
-    this.loadPosts();
+
+    // Load posts with retry mechanism
+    this.loadPostsWithRetry();
+
+    // Check hash route
     this.checkHashRoute();
 
     // Listen for hash changes
     window.addEventListener("hashchange", () => this.checkHashRoute());
+  },
+
+  forceLogout() {
+    // Clear any existing Firebase Auth session
+    // This ensures no one is logged in by default
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      console.log("🔒 Force logout: Clearing previous session");
+      auth.signOut();
+    }
+  },
+
+  async loadPostsWithRetry(maxRetries = 3) {
+    console.log("📝 Starting to load posts...");
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`Attempt ${attempt}/${maxRetries}...`);
+        await this.loadPosts();
+        console.log("✅ Posts loaded successfully!");
+        return; // Success - exit function
+      } catch (error) {
+        console.error(`❌ Attempt ${attempt} failed:`, error);
+
+        if (attempt === maxRetries) {
+          // All attempts failed - show error with retry button
+          console.error("Failed to load posts after all attempts");
+          const feed = document.getElementById("posts-feed");
+          if (feed) {
+            feed.innerHTML = `
+              <div class="text-center py-12">
+                <div class="text-red-600 font-semibold mb-4">⚠️ Failed to load posts</div>
+                <p class="text-gray-600 mb-4">Please check your internet connection</p>
+                <button onclick="app.loadPostsWithRetry()" 
+                  class="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
+                  🔄 Retry
+                </button>
+              </div>
+            `;
+          }
+        } else {
+          // Wait before next attempt (exponential backoff)
+          const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
+          console.log(`Waiting ${waitTime}ms before retry...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
+      }
+    }
   },
 
   checkHashRoute() {
@@ -54,10 +111,20 @@ const app = {
 
   setupAuthListener() {
     auth.onAuthStateChanged((user) => {
+      // Only update state, don't auto-restore sessions
       this.currentUser = user;
+
+      if (user) {
+        console.log("👤 User logged in:", user.email);
+      } else {
+        console.log("🚪 User logged out");
+      }
+
       this.updateAuthUI();
 
       if (user) {
+        // Reload posts to show drafts for admin
+        this.loadPosts();
         this.updateAdminStats();
       }
     });
@@ -135,20 +202,30 @@ const app = {
     const errorDiv = document.getElementById("login-error");
 
     try {
+      // Set persistence to SESSION only (not LOCAL)
+      // This means login will NOT persist across browser sessions/tabs
+      await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+
+      // Now sign in
       await auth.signInWithEmailAndPassword(email, password);
+
+      console.log("✅ Login successful");
       this.closeLoginModal();
       this.showAdminView();
       window.location.hash = "admin";
     } catch (error) {
+      console.error("❌ Login failed:", error);
       errorDiv.textContent = error.message;
       errorDiv.classList.remove("hidden");
     }
   },
 
   async logout() {
+    console.log("🚪 Logging out...");
     await auth.signOut();
     this.showHome();
     window.location.hash = "";
+    console.log("✅ Logged out successfully");
   },
 
   // ============================================
