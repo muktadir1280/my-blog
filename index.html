@@ -1,294 +1,304 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>মুক্তাদিরের ব্যক্তিগত ব্লগ</title>
-    <link rel="shortcut icon" href="./images/logo/favicon.ico" type="images/logo">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Muktadir's Diary</title>
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700&display=swap');
 
-        body {
-            font-family: 'Noto Sans Bengali', sans-serif;
-        }
+    <!-- CSS and Google Fonts - Noto Sans Bengali -->
+    <link rel="stylesheet" href="style.css">
+    <link rel="shortcut icon" href="./images/logo/favicon.ico" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap"
+        rel="stylesheet">
 
-        .post-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        .post-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-        }
-
-        .admin-panel {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .login-container {
-            min-height: 100vh;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        }
-    </style>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 </head>
 
-<body class="bg-gray-50 min-h-screen">
-    <!-- Admin Login Page (Hidden by default) -->
-    <div id="adminLoginPage" class="hidden login-container flex items-center justify-center">
-        <div class="bg-white rounded-xl shadow-2xl p-8 w-full max-w-md mx-4">
-            <div class="text-center mb-8">
-                <h1 class="text-3xl font-bold text-gray-900 mb-2">স্বাগতম মুক্তাদির!</h1>
-                <p class="text-gray-600">Welcome to your Admin Dashboard</p>
-            </div>
+<body class="bg-white text-gray-900">
 
-            <!-- Step 1: User ID (prefilled with admin email) -->
-            <div id="userIdStep">
-                <div class="mb-6">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Your Email</label>
-                    <input type="text" id="userId" placeholder="Enter your email here"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                </div>
-                <button onclick="checkUserId()"
-                    class="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors">
-                    Next Step →
-                </button>
-            </div>
+    <!-- Main Container -->
+    <div id="app" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-            <!-- Step 2: Password -->
-            <div id="passwordStep" class="hidden">
-                <div class="mb-6">
-                    <div class="flex items-center justify-between mb-2">
-                        <label class="block text-sm font-medium text-gray-700">Password</label>
-                        <button onclick="goBackToUserId()" class="text-sm text-blue-600 hover:text-blue-800">← Back
-                            Home</button>
-                    </div>
-                    <input type="password" id="adminPassword" placeholder="Enter your password"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                </div>
-                <button onclick="checkPassword()"
-                    class="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors">
-                    Log in
-                </button>
-            </div>
-
-            <div class="mt-6 text-center">
-                <button onclick="goToPublicView()" class="text-sm text-gray-600 hover:text-gray-800">
-                    পাবলিক ব্লগ দেখুন →
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Public Blog View -->
-    <div id="publicView">
         <!-- Header -->
-        <header class="bg-white shadow-sm border-b fixed top-0 left-0 w-full z-50">
-            <div class="max-w-4xl mx-auto px-4 py-6">
-                <div class="text-center">
-                    <h1 class="text-3xl font-bold text-gray-900">
-                        মুক্তাদিরের ব্যক্তিগত ব্লগ
-                    </h1>
-                    <p class="text-gray-600 mt-1">
-                        ভাবনার খসড়াগুলো জমে থাকে এখানেই...!
-                    </p>
+        <header class="mb-12 pb-8 border-b-2 border-gray-900">
+            <div class="flex justify-between items-center">
+                <!-- Mobile Menu Button (Left) -->
+                <button id="mobile-menu-btn" onclick="app.toggleMobileMenu()"
+                    class="lg:hidden text-gray-900 hover:text-gray-700 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                </button>
+
+                <!-- Blog Title (Center on mobile, Left on desktop) -->
+                <h1 class="text-4xl sm:text-5xl playfair font-bold cursor-pointer flex-1 text-center lg:text-left lg:flex-none"
+                    onclick="app.showHome()">Muktadir's Diary</h1>
+
+                <!-- Auth Section (Hidden on mobile, Visible on desktop) -->
+                <div id="auth-section" class="hidden lg:block">
+                    <!-- Auth buttons will be inserted here -->
                 </div>
             </div>
         </header>
 
-
-        <!-- Main Content -->
-        <main class="max-w-4xl mx-auto px-4 py-8 mt-32">
-            <div id="postsContainer">
-                <!-- Posts will be loaded here -->
-            </div>
-
-            <div id="noPosts" class="text-center py-16">
-                <div class="text-6xl mb-4">📝</div>
-                <h3 class="text-xl font-semibold text-gray-700 mb-2">এখনো কোনো পোস্ট নেই</h3>
-                <p class="text-gray-500">শীঘ্রই নতুন পোস্ট আসবে</p>
-            </div>
-        </main>
-    </div>
-
-    <!-- Admin Dashboard -->
-    <div id="adminDashboard" class="hidden">
-        <header class="bg-white shadow-sm border-b">
-            <div class="max-w-6xl mx-auto px-4 py-6">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h1 class="text-3xl font-bold text-gray-900">অ্যাডমিন ড্যাশবোর্ড</h1>
-                        <p class="text-gray-600 mt-1">আপনার ব্লগ পরিচালনা করুন</p>
-                    </div>
-                    <div class="flex gap-3">
-                        <button onclick="goToPublicView()"
-                            class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            🌐 পাবলিক ভিউ
-                        </button>
-                        <button onclick="logout()"
-                            class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-colors">
-                            লগআউট
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </header>
-
-        <div class="max-w-6xl mx-auto px-4 py-8">
-            <div class="bg-white rounded-xl shadow-lg p-6">
-                <!-- Dashboard Navigation -->
-                <div class="flex border-b border-gray-200 mb-6 overflow-x-auto">
-                    <button onclick="showTab('newPost')" id="newPostTab"
-                        class="px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap">
-                        ✍️ নতুন পোস্ট
+        <!-- Mobile Sidebar Overlay -->
+        <div id="mobile-sidebar" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden lg:hidden">
+            <div
+                class="fixed left-0 top-0 bottom-0 w-80 bg-white shadow-xl transform transition-transform duration-300 overflow-y-auto">
+                <div class="p-6">
+                    <!-- Close Button -->
+                    <button onclick="app.toggleMobileMenu()"
+                        class="absolute top-4 right-4 text-gray-600 hover:text-gray-900">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                     </button>
-                    <button onclick="showTab('managePosts')" id="managePostsTab"
-                        class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
-                        📋 পোস্ট ম্যানেজ করুন (<span id="postCount">0</span>)
-                    </button>
-                    <button onclick="showTab('drafts')" id="draftsTab"
-                        class="px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap">
-                        📄 ড্রাফট (<span id="draftCount">0</span>)
-                    </button>
-                </div>
 
-                <!-- New Post Tab -->
-                <div id="newPostContent">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">নতুন পোস্ট লিখুন</h3>
-                    <input type="text" id="postTitle" placeholder="পোস্টের শিরোনাম"
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4">
-                    <textarea id="postContent" placeholder="আপনার পোস্ট এখানে লিখুন..."
-                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4 h-40 resize-none"></textarea>
-                    <!-- <input type="file" id="postImage" class="mb-4" accept="image/*"> -->
-                    <div class="flex gap-3">
-                        <button onclick="publishPost()"
-                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors">
-                            📝 পোস্ট করুন
-                        </button>
-                        <button onclick="saveDraft()"
-                            class="bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-2 rounded-lg transition-colors">
-                            💾 ড্রাফট সেভ করুন
-                        </button>
+                    <h2 class="text-2xl playfair font-bold mb-6">Menu</h2>
+
+                    <!-- Mobile Auth Section -->
+                    <div id="mobile-auth-section" class="mb-8 pb-6 border-b border-gray-200">
+                        <!-- Auth buttons will be inserted here for mobile -->
                     </div>
-                </div>
 
-                <!-- Manage Posts Tab -->
-                <div id="managePostsContent" class="hidden">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">প্রকাশিত পোস্টসমূহ</h3>
-                    <div id="adminPostsList">
-                        <!-- Posts will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Drafts Tab -->
-                <div id="draftsContent" class="hidden">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">ড্রাফট পোস্টসমূহ</h3>
-                    <div id="draftsList">
-                        <!-- Drafts will be loaded here -->
-                    </div>
-                </div>
-
-                <!-- Edit Post Modal -->
-                <div id="editModal"
-                    class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div class="bg-white rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
-                        <h3 class="text-xl font-semibold text-gray-800 mb-4">পোস্ট এডিট করুন</h3>
-                        <input type="text" id="editTitle" placeholder="পোস্টের শিরোনাম"
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4">
-                        <textarea id="editContent" placeholder="আপনার পোস্ট এখানে লিখুন..."
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none mb-4 h-40 resize-none"></textarea>
-
-                        <!-- Date and Time Settings -->
-                        <div class="bg-gray-50 rounded-lg p-4 mb-4">
-                            <h4 class="font-medium text-gray-800 mb-3">📅 তারিখ ও সময় সেটিংস</h4>
-                            <div class="flex items-center mb-3">
-                                <input type="checkbox" id="useCurrentDateTime" checked onchange="toggleDateTimeInputs()"
-                                    class="mr-2">
-                                <label for="useCurrentDateTime" class="text-sm text-gray-700">বর্তমান তারিখ ও সময়
-                                    ব্যবহার করুন</label>
-                            </div>
-                            <div id="customDateTimeInputs" class="hidden">
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">তারিখ</label>
-                                        <input type="date" id="customDate"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                                    </div>
-                                    <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">সময়</label>
-                                        <input type="time" id="customTime"
-                                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                                    </div>
-                                </div>
-                                <div class="mt-3">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">কাস্টম তারিখ
-                                        (বাংলায়)</label>
-                                    <input type="text" id="customBengaliDate" placeholder="যেমন: ১৫ জানুয়ারি, ২০২৪"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                                    <p class="text-xs text-gray-500 mt-1">খালি রাখলে ইংরেজি তারিখ বাংলায় রূপান্তর হবে
-                                    </p>
-                                </div>
-                                <div class="mt-3">
-                                    <label class="block text-sm font-medium text-gray-700 mb-1">কাস্টম সময়
-                                        (বাংলায়)</label>
-                                    <input type="text" id="customBengaliTime" placeholder="যেমন: দুপুর ২:৩০"
-                                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
-                                    <p class="text-xs text-gray-500 mt-1">খালি রাখলে ইংরেজি সময় বাংলায় রূপান্তর হবে
-                                    </p>
-                                </div>
-                            </div>
+                    <!-- Labels Section -->
+                    <div class="mb-8">
+                        <h3 class="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider">Labels</h3>
+                        <div id="mobile-labels-list" class="flex flex-wrap gap-2">
+                            <span class="text-sm text-gray-400">No labels yet</span>
                         </div>
+                    </div>
 
-                        <div class="flex gap-3">
-                            <button id="saveEditBtn"
-                                class="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg transition-colors">
-                                💾 সেভ করুন
-                            </button>
-                            <button onclick="closeEditModal()"
-                                class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors">
-                                বাতিল
-                            </button>
+                    <!-- Archive Section -->
+                    <div class="mb-8">
+                        <h3 class="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider">Archive</h3>
+                        <div id="mobile-archive-list" class="space-y-1 text-sm">
+                            <div class="text-gray-400">No posts yet</div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Firebase SDKs (using v8 namespaced API for simplicity) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+        <!-- Public View -->
+        <div id="public-view" class="grid grid-cols-1 lg:grid-cols-3 gap-12">
 
-    <footer class="bg-white border-t mt-16">
-        <div class="max-w-4xl mx-auto px-4 py-8">
-            <div class="text-center">
-                <p class="text-gray-600 mb-2">
-                    © ২০২৬ | <span id="footerBlogTitle" class="font-semibold">মুক্তাদিরের ব্যক্তিগত ব্লগ</span>
-                </p>
-                <p class="text-sm text-gray-500 mb-4">সকল অধিকার সংরক্ষিত • Made with ❤️</p>
+            <!-- Main Content Area -->
+            <div class="lg:col-span-2">
+
+                <!-- Filter Info -->
+                <div id="filter-info" class="mb-6 hidden">
+                    <div class="flex items-center gap-2 text-sm text-gray-600">
+                        <span>Filtered by:</span>
+                        <span id="filter-text" class="font-semibold text-gray-900"></span>
+                        <button onclick="app.clearFilter()"
+                            class="ml-2 text-xs underline hover:text-gray-900">Clear</button>
+                    </div>
+                </div>
+
+                <!-- Posts Feed -->
+                <div id="posts-feed" class="fade-in">
+                    <div class="text-center text-gray-400 py-12">
+                        <p>Loading posts...</p>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div id="pagination" class="hidden mt-8 flex justify-center items-center gap-4">
+                    <button id="prev-page" onclick="app.previousPage()"
+                        class="hidden px-6 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold text-gray-700 transition-all">
+                        ← Previous Page
+                    </button>
+                    <div id="page-info" class="text-sm text-gray-600"></div>
+                    <button id="next-page" onclick="app.nextPage()"
+                        class="px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-semibold transition-all">
+                        Next Page →
+                    </button>
+                </div>
+
+                <!-- Single Post View -->
+                <div id="single-post" class="hidden fade-in">
+                    <button onclick="app.showHome()"
+                        class="mb-6 text-sm text-gray-600 hover:text-gray-900 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to posts
+                    </button>
+                    <div id="post-detail"></div>
+                </div>
+            </div>
+
+            <!-- Sidebar (Hidden on mobile, Visible on desktop) -->
+            <aside class="lg:col-span-1 hidden lg:block">
+
+                <!-- Labels Section -->
+                <div class="sidebar-section">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider">Labels</h3>
+                    <div id="labels-list" class="flex flex-wrap gap-2">
+                        <span class="text-sm text-gray-400">No labels yet</span>
+                    </div>
+                </div>
+
+                <!-- Archive Section -->
+                <div class="sidebar-section">
+                    <h3 class="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider">Archive</h3>
+                    <div id="archive-list" class="space-y-1 text-sm">
+                        <div class="text-gray-400">No posts yet</div>
+                    </div>
+                </div>
+
+            </aside>
+        </div>
+
+        <!-- Admin View -->
+        <div id="admin-view" class="hidden">
+
+            <!-- Admin Header -->
+            <div class="mb-8">
+                <h2 class="text-3xl playfair font-bold mb-2">Admin Dashboard</h2>
+                <p class="text-gray-600">Manage your blog posts and content</p>
+            </div>
+
+            <!-- Admin Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg border border-gray-200">
+                    <div class="text-2xl font-bold playfair" id="stat-posts">0</div>
+                    <div class="text-sm text-gray-600">Total Posts</div>
+                </div>
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg border border-gray-200">
+                    <div class="text-2xl font-bold playfair" id="stat-labels">0</div>
+                    <div class="text-sm text-gray-600">Total Labels</div>
+                </div>
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 p-6 rounded-lg border border-gray-200">
+                    <div class="text-2xl font-bold playfair" id="stat-drafts">0</div>
+                    <div class="text-sm text-gray-600">Drafts</div>
+                </div>
+            </div>
+
+            <!-- Admin Tabs -->
+            <div class="flex border-b border-gray-200 mb-8">
+                <div class="admin-tab active px-6 py-3" onclick="app.switchAdminTab('new-post')">New Post</div>
+                <div class="admin-tab px-6 py-3" onclick="app.switchAdminTab('manage-posts')">Manage Posts</div>
+                <div class="admin-tab px-6 py-3" onclick="app.switchAdminTab('drafts')">Drafts</div>
+            </div>
+
+            <!-- Tab: New Post -->
+            <div id="tab-new-post" class="admin-tab-content">
+                <div class="max-w-3xl">
+                    <form id="post-form" onsubmit="app.savePost(event, false)">
+                        <input type="hidden" id="edit-post-id" value="">
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Title</label>
+                            <input type="text" id="post-title" required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                placeholder="Enter post title">
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Content</label>
+                            <textarea id="post-content" required rows="15"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-y"
+                                placeholder="Write your post content here..."></textarea>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Labels
+                                (comma-separated)</label>
+                            <input type="text" id="post-labels"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                                placeholder="Technology, Travel, Life">
+                            <p class="text-xs text-gray-500 mt-1">Separate labels with commas</p>
+                        </div>
+
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2">Custom Date and Time
+                                (Optional)</label>
+                            <input type="datetime-local" id="post-custom-date"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent">
+                            <p class="text-xs text-gray-500 mt-1">If left empty, the current time will be used. You can
+                                set an earlier date for older posts.</p>
+                        </div>
+
+                        <div class="flex gap-4">
+                            <button type="submit" class="btn-primary text-white px-8 py-3 rounded-lg font-semibold">
+                                Publish Post
+                            </button>
+                            <button type="button" onclick="app.savePost(event, true)"
+                                class="bg-gray-200 text-gray-700 px-8 py-3 rounded-lg font-semibold hover:bg-gray-300">
+                                Save as Draft
+                            </button>
+                            <button type="button" onclick="app.resetForm()"
+                                class="text-gray-600 px-6 py-3 hover:text-gray-900">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tab: Manage Posts -->
+            <div id="tab-manage-posts" class="admin-tab-content hidden">
+                <div id="manage-posts-list">
+                    <div class="text-center text-gray-400 py-12">Loading posts...</div>
+                </div>
+            </div>
+
+            <!-- Tab: Drafts -->
+            <div id="tab-drafts" class="admin-tab-content hidden">
+                <div id="drafts-list">
+                    <div class="text-center text-gray-400 py-12">Loading drafts...</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Login Modal -->
+        <div id="login-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 fade-in">
+                <h2 class="playfair font-bold mb-6">Admin Login</h2>
+                <form id="login-form" onsubmit="app.login(event)">
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                        <input type="email" id="login-email" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                        <input type="password" id="login-password" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent">
+                    </div>
+                    <div id="login-error" class="mb-4 text-sm text-red-600 hidden"></div>
+                    <div class="flex gap-4">
+                        <button type="submit" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold flex-1">
+                            Login
+                        </button>
+                        <button type="button" onclick="app.closeLoginModal()"
+                            class="bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-300">
+                            Cancel
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
-    </footer>
-    <script src="./main.js"></script>
+
+    </div>
+
+    <script src="main.js"></script>
+
 </body>
 
 </html>

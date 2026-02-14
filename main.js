@@ -1,4 +1,7 @@
-// ---------- Configuration (YOU PROVIDED) ----------
+// ============================================
+// FIREBASE CONFIGURATION
+// ============================================
+// IMPORTANT: Replace with your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAnqlWmB3YL4lqoy_YeE4mD3ELk-5sUW8Q",
   authDomain: "muktadir-s-personal-blog.firebaseapp.com",
@@ -9,613 +12,959 @@ const firebaseConfig = {
   measurementId: "G-CY0GW8NP1K",
 };
 
-// ---------- Init Firebase ----------
+// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
 const db = firebase.firestore();
-const storage = firebase.storage();
+const auth = firebase.auth();
 
-// Local state
-let editingDocId = null;
-let editingIsDraft = false;
+// ============================================
+// APPLICATION STATE
+// ============================================
+const app = {
+  currentUser: null,
+  posts: [],
+  drafts: [],
+  currentFilter: null,
+  currentFilterType: null, // 'label' or 'archive'
+  currentPost: null,
 
-// ----------------- Helpers -----------------
-function escapeHtml(str) {
-  if (str === undefined || str === null) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
+  // Pagination
+  currentPage: 1,
+  postsPerPage: 10,
+  totalPages: 1,
 
-function toggleDateTimeInputs() {
-  const checkbox = document.getElementById("useCurrentDateTime");
-  const customInputs = document.getElementById("customDateTimeInputs");
+  // ============================================
+  // INITIALIZATION
+  // ============================================
+  init() {
+    this.setupAuthListener();
+    this.loadPosts();
+    this.checkHashRoute();
 
-  if (checkbox.checked) {
-    customInputs.classList.add("hidden");
-  } else {
-    customInputs.classList.remove("hidden");
-    const now = new Date();
-    document.getElementById("customDate").value = now
-      .toISOString()
-      .split("T")[0];
-    document.getElementById("customTime").value = now
-      .toTimeString()
-      .slice(0, 5);
-  }
-}
+    // Listen for hash changes
+    window.addEventListener("hashchange", () => this.checkHashRoute());
+  },
 
-function closeEditModal() {
-  document.getElementById("editModal").classList.add("hidden");
-  editingDocId = null;
-  editingIsDraft = false;
-  document.getElementById("editTitle").value = "";
-  document.getElementById("editContent").value = "";
-  // reset custom fields
-  const cd = document.getElementById("customDate");
-  const ct = document.getElementById("customTime");
-  if (cd) cd.value = "";
-  if (ct) ct.value = "";
-  document.getElementById("useCurrentDateTime").checked = true;
-  document.getElementById("customDateTimeInputs").classList.add("hidden");
-}
-
-// ----------------- Auth helpers -----------------
-function checkUserId() {
-  const email = document.getElementById("userId").value.trim();
-  if (!email) {
-    alert("ইমেইল লিখুন!");
-    return;
-  }
-  document.getElementById("userIdStep").classList.add("hidden");
-  document.getElementById("passwordStep").classList.remove("hidden");
-  document.getElementById("adminPassword").focus();
-}
-
-function goBackToUserId() {
-  document.getElementById("userIdStep").classList.remove("hidden");
-  document.getElementById("passwordStep").classList.add("hidden");
-  document.getElementById("adminPassword").value = "";
-}
-
-function checkPassword() {
-  const email = document.getElementById("userId").value.trim();
-  const password = document.getElementById("adminPassword").value;
-  if (!email || !password) {
-    alert("ইমেইল ও পাসওয়ার্ড দরকার।");
-    return;
-  }
-  auth
-    .signInWithEmailAndPassword(email, password)
-    .then(() => {
-      // success handled by onAuthStateChanged
-    })
-    .catch((err) => {
-      alert("লগইন ব্যর্থ: " + err.message);
-    });
-}
-
-function logout() {
-  auth.signOut().then(() => {
-    // signed out
-  });
-}
-
-// Auth state change
-auth.onAuthStateChanged((user) => {
-  if (window.location.hash === "#admin") {
-    if (user) {
-      showAdminDashboard();
-    } else {
-      showAdminLogin();
+  checkHashRoute() {
+    const hash = window.location.hash;
+    if (hash === "#admin" && this.currentUser) {
+      this.showAdminView();
     }
-  } else {
-    showPublicView();
-  }
-});
+  },
 
-// View switches
-function showAdminLogin() {
-  document.getElementById("adminLoginPage").classList.remove("hidden");
-  document.getElementById("publicView").classList.add("hidden");
-  document.getElementById("adminDashboard").classList.add("hidden");
-  document.getElementById("userId").focus();
-}
+  setupAuthListener() {
+    auth.onAuthStateChanged((user) => {
+      this.currentUser = user;
+      this.updateAuthUI();
 
-function showPublicView() {
-  document.getElementById("adminLoginPage").classList.add("hidden");
-  document.getElementById("publicView").classList.remove("hidden");
-  document.getElementById("adminDashboard").classList.add("hidden");
-  window.location.hash = "";
-  loadPosts();
-}
+      if (user) {
+        this.updateAdminStats();
+      }
+    });
+  },
 
-function showAdminDashboard() {
-  document.getElementById("adminLoginPage").classList.add("hidden");
-  document.getElementById("publicView").classList.add("hidden");
-  document.getElementById("adminDashboard").classList.remove("hidden");
-  window.location.hash = "admin";
-  showTab("newPost");
-  loadAdminPosts();
-  loadDrafts();
-}
+  updateAuthUI() {
+    const authSection = document.getElementById("auth-section");
+    const mobileAuthSection = document.getElementById("mobile-auth-section");
 
-function goToPublicView() {
-  showPublicView();
-}
+    if (this.currentUser) {
+      const authButtons = `
+        <div class="flex items-center gap-4">
+          <button onclick="app.showAdminView()" 
+            class="text-sm text-gray-600 hover:text-gray-900 font-semibold">
+            Admin
+          </button>
+          <button onclick="app.logout()" 
+            class="text-sm text-gray-600 hover:text-gray-900">
+            Logout
+          </button>
+        </div>
+      `;
+      authSection.innerHTML = authButtons;
 
-//Bangla time conversiton
-function convertToBengaliTime(timeValue) {
-  // timeValue = "14:30" বা "08:05"
-  const [hourStr, minute] = timeValue.split(":");
-  let hour = parseInt(hourStr, 10);
-  let period = "AM";
+      // Mobile version
+      mobileAuthSection.innerHTML = `
+        <div class="space-y-3">
+          <button onclick="app.showAdminView(); app.toggleMobileMenu();" 
+            class="w-full text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors">
+            Admin Dashboard
+          </button>
+          <button onclick="app.logout(); app.toggleMobileMenu();" 
+            class="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+            Logout
+          </button>
+        </div>
+      `;
+    } else {
+      authSection.innerHTML = `
+        <button onclick="app.openLoginModal()" 
+          class="text-sm text-gray-600 hover:text-gray-900">
+          Admin Login
+        </button>
+      `;
 
-  if (hour >= 12) {
-    period = "PM";
-    if (hour > 12) hour -= 12;
-  }
-  if (hour === 0) hour = 12;
+      // Mobile version
+      mobileAuthSection.innerHTML = `
+        <button onclick="app.openLoginModal(); app.toggleMobileMenu();" 
+          class="w-full text-left px-4 py-3 bg-gray-900 text-white hover:bg-gray-800 rounded-lg font-semibold transition-colors">
+          Admin Login
+        </button>
+      `;
+    }
+  },
 
-  // বাংলা সংখ্যায় রূপান্তর
-  const bengaliDigits = (n) =>
-    n.toString().replace(/\d/g, (d) => "০১২৩৪৫৬৭৮৯"[d]);
-  const bengaliHour = bengaliDigits(hour);
-  const bengaliMinute = bengaliDigits(minute);
+  // ============================================
+  // AUTHENTICATION
+  // ============================================
+  openLoginModal() {
+    document.getElementById("login-modal").classList.remove("hidden");
+    document.getElementById("login-modal").classList.add("flex");
+  },
 
-  return `${bengaliHour}:${bengaliMinute} ${period === "AM" ? "AM" : "PM"}`;
-}
+  closeLoginModal() {
+    document.getElementById("login-modal").classList.add("hidden");
+    document.getElementById("login-modal").classList.remove("flex");
+    document.getElementById("login-error").classList.add("hidden");
+  },
 
-// ----------------- Public: load posts -----------------
-async function loadPosts() {
-  const container = document.getElementById("postsContainer");
-  const noPosts = document.getElementById("noPosts");
+  async login(event) {
+    event.preventDefault();
 
-  try {
-    const snapshot = await db
-      .collection("posts")
-      .orderBy("createdAt", "desc")
-      .get();
-    const posts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const email = document.getElementById("login-email").value;
+    const password = document.getElementById("login-password").value;
+    const errorDiv = document.getElementById("login-error");
 
-    if (posts.length === 0) {
-      container.innerHTML = "";
-      noPosts.classList.remove("hidden");
+    try {
+      await auth.signInWithEmailAndPassword(email, password);
+      this.closeLoginModal();
+      this.showAdminView();
+      window.location.hash = "admin";
+    } catch (error) {
+      errorDiv.textContent = error.message;
+      errorDiv.classList.remove("hidden");
+    }
+  },
+
+  async logout() {
+    await auth.signOut();
+    this.showHome();
+    window.location.hash = "";
+  },
+
+  // ============================================
+  // DATA LOADING
+  // ============================================
+  async loadPosts() {
+    try {
+      // Load ALL posts from Firebase (including old posts without isDraft field)
+      const postsSnapshot = await db
+        .collection("posts")
+        .orderBy("createdAt", "desc")
+        .get();
+
+      // Filter published posts - treat posts without isDraft field as published
+      this.posts = postsSnapshot.docs
+        .map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+          createdAt: doc.data().createdAt?.toDate(),
+        }))
+        .filter((post) => post.isDraft !== true); // Show posts that are NOT drafts (including old posts)
+
+      console.log(
+        `Loaded ${this.posts.length} published posts (including old posts)`,
+      );
+
+      // Load drafts if admin
+      if (this.currentUser) {
+        this.drafts = postsSnapshot.docs
+          .map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+            createdAt: doc.data().createdAt?.toDate(),
+          }))
+          .filter((post) => post.isDraft === true);
+
+        console.log(`Loaded ${this.drafts.length} drafts`);
+      }
+
+      this.renderPosts();
+      this.updateSidebar();
+      this.updateAdminStats();
+    } catch (error) {
+      console.error("Error loading posts:", error);
+
+      // Show user-friendly error message
+      const feed = document.getElementById("posts-feed");
+      if (error.code === "failed-precondition") {
+        feed.innerHTML = `
+          <div class="text-center py-12">
+            <div class="text-red-600 font-semibold mb-2">⚠️ Database Index Required</div>
+            <div class="text-gray-600 text-sm max-w-2xl mx-auto">
+              <p class="mb-2">Firestore needs an index for this query.</p>
+              <p class="mb-3">Click the link in the browser console to create it, then refresh the page.</p>
+              <p class="text-xs text-gray-500">Or check the Firestore console → Indexes tab</p>
+            </div>
+          </div>
+        `;
+      } else if (error.code === "permission-denied") {
+        feed.innerHTML = `
+          <div class="text-center py-12">
+            <div class="text-red-600 font-semibold mb-2">🔒 Permission Denied</div>
+            <div class="text-gray-600 text-sm max-w-2xl mx-auto">
+              <p class="mb-2">Check your Firestore security rules.</p>
+              <p class="text-xs">Rules should allow public read access for the posts collection</p>
+            </div>
+          </div>
+        `;
+      } else {
+        feed.innerHTML = `
+          <div class="text-center py-12">
+            <div class="text-red-600 font-semibold mb-2">Error Loading Posts</div>
+            <div class="text-gray-600 text-sm">${error.message}</div>
+            <div class="text-xs text-gray-500 mt-2">Check browser console for details</div>
+          </div>
+        `;
+      }
+    }
+  },
+
+  // ============================================
+  // RENDERING
+  // ============================================
+  renderPosts() {
+    const feed = document.getElementById("posts-feed");
+    let postsToShow = this.posts;
+
+    // Apply filters
+    if (this.currentFilter) {
+      if (this.currentFilterType === "label") {
+        postsToShow = this.posts.filter(
+          (post) => post.labels && post.labels.includes(this.currentFilter),
+        );
+      } else if (this.currentFilterType === "archive") {
+        postsToShow = this.posts.filter((post) => {
+          const date = new Date(post.createdAt);
+          const monthYear = `${date.toLocaleString("default", { month: "long" })} ${date.getFullYear()}`;
+          return monthYear === this.currentFilter;
+        });
+      }
+    }
+
+    // Calculate pagination
+    this.totalPages = Math.ceil(postsToShow.length / this.postsPerPage);
+    const startIndex = (this.currentPage - 1) * this.postsPerPage;
+    const endIndex = startIndex + this.postsPerPage;
+    const paginatedPosts = postsToShow.slice(startIndex, endIndex);
+
+    if (postsToShow.length === 0) {
+      // Different message if filtering vs no posts at all
+      if (this.currentFilter) {
+        feed.innerHTML = `
+          <div class="text-center text-gray-400 py-12">
+            <p>No posts found with this filter</p>
+          </div>
+        `;
+      } else if (this.posts.length === 0) {
+        // No posts exist at all - show welcome message
+        feed.innerHTML = `
+          <div class="text-center py-12 max-w-2xl mx-auto">
+            <div class="text-6xl mb-4">📝</div>
+            <h2 class="text-2xl playfair font-bold text-gray-900 mb-3">Welcome to Muktadir's Diary!</h2>
+            <p class="text-gray-600 mb-6">Your blog is ready, but there are no posts yet.</p>
+            ${
+              this.currentUser
+                ? `
+              <p class="text-sm text-gray-500 mb-4">Click the "New Post" tab to create your first post!</p>
+            `
+                : `
+              <p class="text-sm text-gray-500">The admin needs to create some posts first.</p>
+            `
+            }
+          </div>
+        `;
+      } else {
+        feed.innerHTML = `
+          <div class="text-center text-gray-400 py-12">
+            <p>No posts found</p>
+          </div>
+        `;
+      }
+      this.hidePagination();
       return;
     }
 
-    noPosts.classList.add("hidden");
+    feed.innerHTML = paginatedPosts
+      .map((post) => {
+        const contentLength = post.content.length;
+        const showReadMore = contentLength > 500; // Show Read More if content > 500 characters
+        const preview = showReadMore
+          ? this.truncateText(post.content, 500)
+          : post.content;
 
-    container.innerHTML = posts
-      .map(
-        (post) => `
-                    <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in">
-                        <header class="mb-4">
-                            <h2 class="text-2xl font-bold text-gray-900 mb-2">${escapeHtml(
-                              post.title
-                            )}</h2>
-                            <div class="flex items-center text-sm text-gray-500">
-                                <span class="mr-4">📅 ${escapeHtml(
-                                  post.date || ""
-                                )}</span>
-                                <span>🕐 ${escapeHtml(post.time || "")}</span>
-                            </div>
-                        </header>
-                        ${
-                          post.imageUrl
-                            ? `<img src="${post.imageUrl}" class="mb-4 max-h-80 w-full object-cover rounded-lg">`
-                            : ""
-                        }
-                        <div class="prose prose-lg max-w-none">
-                            <p style="white-space: pre-wrap;" class="text-gray-700 leading-relaxed">${escapeHtml(
-                              post.content
-                            )}</p>
+        // Format content properly
+        const formattedPreview = this.formatContentForDisplay(preview);
+
+        const date = new Date(post.createdAt).toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+
+        return `
+                <article class="post-card bg-white rounded-xl shadow-md p-6 mb-6 fade-in hover-lift cursor-pointer" onclick="app.showPost('${post.id}')">
+                    <h2 class="text-3xl playfair font-bold mb-3 hover:text-gray-700 transition-colors">
+                        ${this.escapeHtml(post.title)}
+                    </h2>
+                    <div class="text-sm text-gray-500 mb-4">${date}</div>
+                    <div class="text-gray-700 leading-relaxed mb-4">
+                        ${formattedPreview}${showReadMore ? "..." : ""}
+                    </div>
+                    ${
+                      post.labels && post.labels.length > 0
+                        ? `
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            ${post.labels
+                              .map(
+                                (label) => `
+                                <span class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full">
+                                    ${this.escapeHtml(label)}
+                                </span>
+                            `,
+                              )
+                              .join("")}
                         </div>
-                    </article>
+                    `
+                        : ""
+                    }
+                    ${
+                      showReadMore
+                        ? `
+                        <button class="text-sm font-semibold text-gray-900 hover:underline inline-flex items-center gap-1">
+                            Read More 
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                            </svg>
+                        </button>
+                    `
+                        : ""
+                    }
+                </article>
+            `;
+      })
+      .join("");
+
+    // Update pagination controls
+    this.updatePagination(postsToShow.length);
+  },
+
+  updatePagination(totalPosts) {
+    const pagination = document.getElementById("pagination");
+    const prevButton = document.getElementById("prev-page");
+    const nextButton = document.getElementById("next-page");
+    const pageInfo = document.getElementById("page-info");
+
+    if (totalPosts <= this.postsPerPage) {
+      // Don't show pagination if all posts fit on one page
+      this.hidePagination();
+      return;
+    }
+
+    pagination.classList.remove("hidden");
+
+    // Show/hide Previous button (only show if not on first page)
+    if (this.currentPage > 1) {
+      prevButton.classList.remove("hidden");
+    } else {
+      prevButton.classList.add("hidden");
+    }
+
+    // Show/hide Next button
+    if (this.currentPage >= this.totalPages) {
+      nextButton.classList.add("hidden");
+    } else {
+      nextButton.classList.remove("hidden");
+    }
+
+    // Update page info
+    pageInfo.textContent = `Page ${this.currentPage} of ${this.totalPages}`;
+  },
+
+  hidePagination() {
+    document.getElementById("pagination").classList.add("hidden");
+  },
+
+  nextPage() {
+    if (this.currentPage < this.totalPages) {
+      this.currentPage++;
+      this.renderPosts();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  },
+
+  previousPage() {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+      this.renderPosts();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  },
+
+  resetPagination() {
+    this.currentPage = 1;
+  },
+
+  showPost(postId) {
+    const post = this.posts.find((p) => p.id === postId);
+    if (!post) return;
+
+    this.currentPost = post;
+    const date = new Date(post.createdAt).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+
+    document.getElementById("posts-feed").classList.add("hidden");
+    document.getElementById("filter-info").classList.add("hidden");
+    document.getElementById("pagination").classList.add("hidden");
+    const singlePost = document.getElementById("single-post");
+    singlePost.classList.remove("hidden");
+
+    document.getElementById("post-detail").innerHTML = `
+            <article>
+                <h1 class="text-4xl sm:text-5xl playfair font-bold mb-4">
+                    ${this.escapeHtml(post.title)}
+                </h1>
+                <div class="text-sm text-gray-500 mb-8">${date}</div>
+                ${
+                  post.labels && post.labels.length > 0
+                    ? `
+                    <div class="flex flex-wrap gap-2 mb-8">
+                        ${post.labels
+                          .map(
+                            (label) => `
+                            <span class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full">
+                                ${this.escapeHtml(label)}
+                            </span>
+                        `,
+                          )
+                          .join("")}
+                    </div>
                 `
+                    : ""
+                }
+                <div class="text-gray-800 leading-relaxed text-lg">
+                    ${this.formatContentForDisplay(post.content)}
+                </div>
+            </article>
+        `;
+
+    window.scrollTo(0, 0);
+  },
+
+  showHome() {
+    document.getElementById("public-view").classList.remove("hidden");
+    document.getElementById("admin-view").classList.add("hidden");
+    document.getElementById("posts-feed").classList.remove("hidden");
+    document.getElementById("single-post").classList.add("hidden");
+
+    if (this.currentFilter) {
+      document.getElementById("filter-info").classList.remove("hidden");
+    }
+
+    // Re-render posts to show pagination buttons
+    this.renderPosts();
+
+    window.location.hash = "";
+    this.currentPost = null;
+  },
+
+  updateSidebar() {
+    this.renderLabels();
+    this.renderArchive();
+
+    // Also update mobile sidebar
+    this.renderMobileLabels();
+    this.renderMobileArchive();
+  },
+
+  toggleMobileMenu() {
+    const mobileSidebar = document.getElementById("mobile-sidebar");
+    mobileSidebar.classList.toggle("hidden");
+  },
+
+  renderLabels() {
+    const labelsContainer = document.getElementById("labels-list");
+    const allLabels = new Map();
+
+    // Count posts per label
+    this.posts.forEach((post) => {
+      if (post.labels) {
+        post.labels.forEach((label) => {
+          allLabels.set(label, (allLabels.get(label) || 0) + 1);
+        });
+      }
+    });
+
+    if (allLabels.size === 0) {
+      labelsContainer.innerHTML =
+        '<span class="text-sm text-gray-400">No labels yet</span>';
+      return;
+    }
+
+    labelsContainer.innerHTML = Array.from(allLabels.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(
+        ([label, count]) => `
+                <button onclick="app.filterByLabel('${this.escapeHtml(label)}')" 
+                    class="label-tag text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full ${this.currentFilter === label ? "active" : ""}">
+                    ${this.escapeHtml(label)} (${count})
+                </button>
+            `,
       )
       .join("");
-  } catch (err) {
-    console.error("loadPosts error", err);
-    container.innerHTML =
-      '<p class="text-red-500">পোস্ট লোড করতে সমস্যা হয়েছে। কনসোল চেক করুন।</p>';
-  }
-}
+  },
 
-// ----------------- Admin: posts CRUD -----------------
-async function publishPost() {
-  const user = auth.currentUser;
-  if (!user) {
-    alert("প্রথমে লগইন করুন।");
-    return;
-  }
+  renderArchive() {
+    const archiveContainer = document.getElementById("archive-list");
+    const monthCounts = new Map();
 
-  const title = document.getElementById("postTitle").value.trim();
-  const content = document.getElementById("postContent").value.trim();
-
-  // guard for optional image input
-  const imageElem = document.getElementById("postImage");
-  const imageFile = imageElem ? imageElem.files[0] : null;
-
-  if (!title || !content) {
-    alert("শিরোনাম এবং কন্টেন্ট লিখুন!");
-    return;
-  }
-
-  try {
-    let imageUrl = "";
-    if (imageFile) {
-      const storageRef = storage
-        .ref()
-        .child("post_images/" + Date.now() + "_" + imageFile.name);
-      const uploadTask = storageRef.put(imageFile);
-      await uploadTask;
-      imageUrl = await storageRef.getDownloadURL();
-    }
-
-    const now = new Date();
-    const bengaliDate = now.toLocaleDateString("bn-BD");
-    const bengaliTime = now.toLocaleTimeString("bn-BD", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
+    // Group posts by month/year
+    this.posts.forEach((post) => {
+      const date = new Date(post.createdAt);
+      const monthYear = `${date.toLocaleString("default", { month: "long" })} ${date.getFullYear()}`;
+      monthCounts.set(monthYear, (monthCounts.get(monthYear) || 0) + 1);
     });
 
-    await db.collection("posts").add({
-      title,
-      content,
-      imageUrl: imageUrl || null,
-      date: bengaliDate,
-      time: bengaliTime,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      author: user.email || null,
-    });
-
-    // clear form and reload admin posts
-    document.getElementById("postTitle").value = "";
-    document.getElementById("postContent").value = "";
-    if (imageElem) imageElem.value = "";
-    alert("পোস্ট সফলভাবে প্রকাশিত হয়েছে!");
-    loadAdminPosts();
-    loadPosts();
-  } catch (err) {
-    console.error("publishPost error", err);
-    alert("পোস্ট প্রকাশ করতে সমস্যা হয়েছে। কনসোল চেক করুন।");
-  }
-}
-
-async function saveDraft() {
-  const user = auth.currentUser;
-  if (!user) {
-    alert("প্রথমে লগইন করুন।");
-    return;
-  }
-
-  const title = document.getElementById("postTitle").value.trim();
-  const content = document.getElementById("postContent").value.trim();
-
-  if (!title && !content) {
-    alert("অন্তত শিরোনাম বা কন্টেন্ট লিখুন!");
-    return;
-  }
-
-  try {
-    await db.collection("drafts").add({
-      title: title || "শিরোনামহীন ড্রাফট",
-      content: content,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      author: user.email || null,
-    });
-
-    document.getElementById("postTitle").value = "";
-    document.getElementById("postContent").value = "";
-    alert("ড্রাফট সেভ হয়েছে!");
-    loadDrafts();
-  } catch (err) {
-    console.error("saveDraft error", err);
-    alert("ড্রাফট সেভ করতে সমস্যা হয়েছে। কনসোল চেক করুন।");
-  }
-}
-
-async function updatePostCount() {
-  const snapshot = await db.collection("posts").get();
-  document.getElementById("postCount").textContent = snapshot.size;
-}
-
-async function loadAdminPosts() {
-  const container = document.getElementById("adminPostsList");
-  const snapshot = await db
-    .collection("posts")
-    .orderBy("createdAt", "desc")
-    .get();
-  const posts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-  if (posts.length === 0) {
-    container.innerHTML =
-      '<p class="text-gray-500 text-center py-8">এখনো কোনো প্রকাশিত পোস্ট নেই</p>';
-    updatePostCount();
-    return;
-  }
-
-  container.innerHTML = posts
-    .map(
-      (post) => `
-                <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h4 class="font-semibold text-gray-900 mb-2">${escapeHtml(
-                              post.title
-                            )}</h4>
-                            <p class="text-gray-600 text-sm mb-2">${escapeHtml(
-                              post.content
-                                ? post.content.substring(0, 120) +
-                                    (post.content.length > 120 ? "..." : "")
-                                : ""
-                            )}</p>
-                            <div class="text-xs text-gray-500">📅 ${escapeHtml(
-                              post.date || ""
-                            )} • 🕐 ${escapeHtml(post.time || "")}</div>
-                        </div>
-                        <div class="flex gap-2 ml-4">
-                            <button onclick="startEditPost('${
-                              post.id
-                            }', false)" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">✏️ এডিট</button>
-                            <button onclick="deletePost('${
-                              post.id
-                            }')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">🗑️ ডিলিট</button>
-                        </div>
-                    </div>
-                </div>
-            `
-    )
-    .join("");
-  updatePostCount();
-}
-
-async function deletePost(docId) {
-  if (!confirm("আপনি কি নিশ্চিত এই পোস্টটি ডিলিট করতে চান?")) return;
-  await db.collection("posts").doc(docId).delete();
-  alert("পোস্ট ডিলিট হয়েছে!");
-  loadAdminPosts();
-  loadPosts();
-}
-
-// ----------------- Drafts -----------------
-async function loadDrafts() {
-  const container = document.getElementById("draftsList");
-  const snapshot = await db
-    .collection("drafts")
-    .orderBy("createdAt", "desc")
-    .get();
-  const drafts = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-
-  document.getElementById("draftCount").textContent = drafts.length;
-
-  if (drafts.length === 0) {
-    container.innerHTML =
-      '<p class="text-gray-500 text-center py-8">এখনো কোনো ড্রাফট নেই</p>';
-    return;
-  }
-
-  container.innerHTML = drafts
-    .map(
-      (draft) => `
-                <div class="bg-yellow-50 rounded-lg p-4 mb-4 border border-yellow-200">
-                    <div class="flex justify-between items-start">
-                        <div class="flex-1">
-                            <h4 class="font-semibold text-gray-900 mb-2">${escapeHtml(
-                              draft.title
-                            )}</h4>
-                            <p class="text-gray-600 text-sm mb-2">${escapeHtml(
-                              draft.content
-                                ? draft.content.substring(0, 120) +
-                                    (draft.content.length > 120 ? "..." : "")
-                                : "কোনো কন্টেন্ট নেই"
-                            )}</p>
-                            <div class="text-xs text-gray-500">📅 ${escapeHtml(
-                              draft.createdAt
-                                ? new Date(
-                                    draft.createdAt.seconds * 1000
-                                  ).toLocaleDateString("bn-BD")
-                                : ""
-                            )}</div>
-                        </div>
-                        <div class="flex gap-2 ml-4">
-                            <button onclick="startEditPost('${
-                              draft.id
-                            }', true)" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm transition-colors">✏️ এডিট</button>
-                            <button onclick="publishDraft('${
-                              draft.id
-                            }')" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm transition-colors">📝 পাবলিশ</button>
-                            <button onclick="deleteDraft('${
-                              draft.id
-                            }')" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition-colors">🗑️ ডিলিট</button>
-                        </div>
-                    </div>
-                </div>
-            `
-    )
-    .join("");
-}
-
-async function deleteDraft(docId) {
-  if (!confirm("আপনি কি নিশ্চিত এই ড্রাফটটি ডিলিট করতে চান?")) return;
-  await db.collection("drafts").doc(docId).delete();
-  alert("ড্রাফট ডিলিট হয়েছে!");
-  loadDrafts();
-}
-
-async function publishDraft(docId) {
-  const doc = await db.collection("drafts").doc(docId).get();
-  if (!doc.exists) return alert("ড্রাফট পাওয়া যায়নি।");
-  const data = doc.data();
-  const now = new Date();
-  const bengaliDate = now.toLocaleDateString("bn-BD");
-  const bengaliTime = now.toLocaleTimeString("bn-BD", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  await db.collection("posts").add({
-    title: data.title,
-    content: data.content,
-    imageUrl: null,
-    date: bengaliDate,
-    time: bengaliTime,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    author: data.author || null,
-  });
-
-  await db.collection("drafts").doc(docId).delete();
-  alert("ড্রাফট প্রকাশ করা হয়েছে!");
-  loadDrafts();
-  loadAdminPosts();
-  loadPosts();
-}
-
-// ----------------- Edit flow -----------------
-async function startEditPost(docId, isDraft) {
-  editingDocId = docId;
-  editingIsDraft = isDraft;
-  document.getElementById("editModal").classList.remove("hidden");
-
-  const collection = isDraft ? "drafts" : "posts";
-  const doc = await db.collection(collection).doc(docId).get();
-  if (!doc.exists) return alert("ডকুমেন্ট পাওয়া যায়নি।");
-  const data = doc.data();
-  document.getElementById("editTitle").value = data.title || "";
-  document.getElementById("editContent").value = data.content || "";
-  document.getElementById("useCurrentDateTime").checked = true;
-  document.getElementById("customDateTimeInputs").classList.add("hidden");
-
-  // If user wants to edit with custom date/time, prefill the inputs with current values (if available)
-  try {
-    const cd = document.getElementById("customDate");
-    const ct = document.getElementById("customTime");
-    if (cd && data.date) {
-      // Try to parse an ISO-ish date if stored; fallback leave empty
-      // We won't force conversion; user can pick custom date manually.
-    }
-    if (ct && data.time) {
-      // same: time is stored as string; user can switch to custom and edit
-    }
-  } catch (e) {
-    // ignore
-  }
-}
-
-async function saveEditedPost() {
-  const title = document.getElementById("editTitle").value.trim();
-  const content = document.getElementById("editContent").value.trim();
-  if (!title || !content) {
-    alert("শিরোনাম এবং কন্টেন্ট লিখুন!");
-    return;
-  }
-
-  let finalDate, finalTime;
-  if (document.getElementById("useCurrentDateTime").checked) {
-    const now = new Date();
-    finalDate = now.toLocaleDateString("bn-BD");
-    finalTime = now.toLocaleTimeString("bn-BD", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  } else {
-    const customDate = document.getElementById("customDate").value;
-    const customTime = document.getElementById("customTime").value;
-    if (!customDate || !customTime) {
-      alert("কাস্টম তারিখ ও সময় দিন!");
+    if (monthCounts.size === 0) {
+      archiveContainer.innerHTML =
+        '<div class="text-gray-400">No posts yet</div>';
       return;
     }
-    // যদি customBengaliDate ফিল্ডে কিছু লেখা থাকে তাহলে সেটা ব্যবহার করবো
-    if (document.getElementById("customBengaliDate").value.trim()) {
-      finalDate = document.getElementById("customBengaliDate").value.trim();
-    } else {
-      finalDate = new Date(customDate).toLocaleDateString("bn-BD");
+
+    archiveContainer.innerHTML = Array.from(monthCounts.entries())
+      .map(
+        ([monthYear, count]) => `
+                <div onclick="app.filterByArchive('${monthYear}')" 
+                    class="archive-item cursor-pointer py-1 text-gray-700 hover:text-gray-900 ${this.currentFilter === monthYear ? "active" : ""}">
+                    ${monthYear} (${count})
+                </div>
+            `,
+      )
+      .join("");
+  },
+
+  renderMobileLabels() {
+    const labelsContainer = document.getElementById("mobile-labels-list");
+    const allLabels = new Map();
+
+    // Count posts per label
+    this.posts.forEach((post) => {
+      if (post.labels) {
+        post.labels.forEach((label) => {
+          allLabels.set(label, (allLabels.get(label) || 0) + 1);
+        });
+      }
+    });
+
+    if (allLabels.size === 0) {
+      labelsContainer.innerHTML =
+        '<span class="text-sm text-gray-400">No labels yet</span>';
+      return;
     }
 
-    // যদি customBengaliTime ফিল্ডে কিছু লেখা থাকে তাহলে সেটা ব্যবহার করবো
-    if (document.getElementById("customBengaliTime").value.trim()) {
-      finalTime = document.getElementById("customBengaliTime").value.trim();
-    } else {
-      finalTime = convertToBengaliTime(customTime);
+    labelsContainer.innerHTML = Array.from(allLabels.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(
+        ([label, count]) => `
+            <button onclick="app.filterByLabel('${this.escapeHtml(label)}'); app.toggleMobileMenu();" 
+                class="label-tag text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full ${this.currentFilter === label ? "active" : ""}">
+                ${this.escapeHtml(label)} (${count})
+            </button>
+        `,
+      )
+      .join("");
+  },
+
+  renderMobileArchive() {
+    const archiveContainer = document.getElementById("mobile-archive-list");
+    const monthCounts = new Map();
+
+    // Group posts by month/year
+    this.posts.forEach((post) => {
+      const date = new Date(post.createdAt);
+      const monthYear = `${date.toLocaleString("default", { month: "long" })} ${date.getFullYear()}`;
+      monthCounts.set(monthYear, (monthCounts.get(monthYear) || 0) + 1);
+    });
+
+    if (monthCounts.size === 0) {
+      archiveContainer.innerHTML =
+        '<div class="text-gray-400">No posts yet</div>';
+      return;
     }
-  }
 
-  try {
-    const collection = editingIsDraft ? "drafts" : "posts";
-    const updates = { title, content, date: finalDate, time: finalTime };
+    archiveContainer.innerHTML = Array.from(monthCounts.entries())
+      .map(
+        ([monthYear, count]) => `
+                <div onclick="app.filterByArchive('${monthYear}'); app.toggleMobileMenu();" 
+                    class="archive-item cursor-pointer py-1 text-gray-700 hover:text-gray-900 ${this.currentFilter === monthYear ? "active" : ""}">
+                    ${monthYear} (${count})
+                </div>
+            `,
+      )
+      .join("");
+  },
 
-    await db.collection(collection).doc(editingDocId).update(updates);
-    alert("আপডেট করা হয়েছে!");
-    closeEditModal();
-    loadDrafts();
-    loadAdminPosts();
-    loadPosts();
-  } catch (err) {
-    console.error("saveEditedPost error", err);
-    alert("আপডেট করতে সমস্যা হয়েছে। কনসোল চেক করুন।");
-  }
-}
+  // ============================================
+  // FILTERING
+  // ============================================
+  filterByLabel(label) {
+    this.resetPagination();
+    this.currentFilter = label;
+    this.currentFilterType = "label";
+    document.getElementById("filter-text").textContent = `Label: ${label}`;
+    document.getElementById("filter-info").classList.remove("hidden");
+    document.getElementById("single-post").classList.add("hidden");
+    document.getElementById("posts-feed").classList.remove("hidden");
+    this.renderPosts();
+    this.updateSidebar();
+    window.scrollTo(0, 0);
+  },
 
-// Tab navigation
-function showTab(tabName) {
-  document.getElementById("newPostContent").classList.add("hidden");
-  document.getElementById("managePostsContent").classList.add("hidden");
-  document.getElementById("draftsContent").classList.add("hidden");
+  filterByArchive(monthYear) {
+    this.resetPagination();
+    this.currentFilter = monthYear;
+    this.currentFilterType = "archive";
+    document.getElementById("filter-text").textContent =
+      `Archive: ${monthYear}`;
+    document.getElementById("filter-info").classList.remove("hidden");
+    document.getElementById("single-post").classList.add("hidden");
+    document.getElementById("posts-feed").classList.remove("hidden");
+    this.renderPosts();
+    this.updateSidebar();
+    window.scrollTo(0, 0);
+  },
 
-  document.getElementById("newPostTab").className =
-    "px-4 py-2 font-medium text-gray-500 hover:text-gray-700 whitespace-nowrap";
-  document.getElementById("managePostsTab").className =
-    "px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap";
-  document.getElementById("draftsTab").className =
-    "px-4 py-2 font-medium text-gray-500 hover:text-gray-700 ml-4 whitespace-nowrap";
+  clearFilter() {
+    this.resetPagination();
+    this.currentFilter = null;
+    this.currentFilterType = null;
+    document.getElementById("filter-info").classList.add("hidden");
+    this.renderPosts();
+    this.updateSidebar();
+  },
 
-  if (tabName === "newPost") {
-    document.getElementById("newPostContent").classList.remove("hidden");
-    document.getElementById("newPostTab").className =
-      "px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 whitespace-nowrap";
-  } else if (tabName === "managePosts") {
-    document.getElementById("managePostsContent").classList.remove("hidden");
-    document.getElementById("managePostsTab").className =
-      "px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap";
-    loadAdminPosts();
-  } else if (tabName === "drafts") {
-    document.getElementById("draftsContent").classList.remove("hidden");
-    document.getElementById("draftsTab").className =
-      "px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 ml-4 whitespace-nowrap";
-    loadDrafts();
-  }
-}
+  // ============================================
+  // ADMIN VIEW
+  // ============================================
+  showAdminView() {
+    if (!this.currentUser) {
+      this.openLoginModal();
+      return;
+    }
 
-// Initial page load behavior
-function checkUrlHash() {
-  if (window.location.hash === "#admin") {
-    showAdminLogin();
-  } else {
-    showPublicView();
-  }
-}
+    document.getElementById("public-view").classList.add("hidden");
+    document.getElementById("admin-view").classList.remove("hidden");
+    this.switchAdminTab("new-post");
+    this.loadManagePosts();
+    this.loadDrafts();
+    window.scrollTo(0, 0);
+  },
 
-window.addEventListener("hashchange", checkUrlHash);
-document.addEventListener("DOMContentLoaded", function () {
-  checkUrlHash();
+  switchAdminTab(tabName) {
+    // Update tab styles
+    document.querySelectorAll(".admin-tab").forEach((tab) => {
+      tab.classList.remove("active");
+    });
+    event.target.classList.add("active");
 
-  // Attach save edited button safely after DOM loaded
-  const saveBtn = document.getElementById("saveEditBtn");
-  if (saveBtn) saveBtn.addEventListener("click", saveEditedPost);
+    // Show/hide content
+    document.querySelectorAll(".admin-tab-content").forEach((content) => {
+      content.classList.add("hidden");
+    });
+    document.getElementById(`tab-${tabName}`).classList.remove("hidden");
+
+    // Load data if needed
+    if (tabName === "manage-posts") {
+      this.loadManagePosts();
+    } else if (tabName === "drafts") {
+      this.loadDrafts();
+    }
+  },
+
+  async savePost(event, isDraft = false) {
+    event.preventDefault();
+
+    const title = document.getElementById("post-title").value.trim();
+    const content = document.getElementById("post-content").value; // Don't trim - preserve exact formatting
+    const labelsInput = document.getElementById("post-labels").value.trim();
+    const labels = labelsInput
+      ? labelsInput
+          .split(",")
+          .map((l) => l.trim())
+          .filter((l) => l)
+      : [];
+    const editPostId = document.getElementById("edit-post-id").value;
+    const customDateInput = document.getElementById("post-custom-date").value;
+
+    const postData = {
+      title,
+      content,
+      labels,
+      isDraft,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    try {
+      if (editPostId) {
+        // Update existing post
+        // Only update createdAt if custom date is provided
+        if (customDateInput) {
+          const customDate = new Date(customDateInput);
+          postData.createdAt =
+            firebase.firestore.Timestamp.fromDate(customDate);
+        }
+        await db.collection("posts").doc(editPostId).update(postData);
+        alert(isDraft ? "Draft updated!" : "Post updated!");
+      } else {
+        // Create new post
+        // Use custom date if provided, otherwise use server timestamp
+        if (customDateInput) {
+          const customDate = new Date(customDateInput);
+          postData.createdAt =
+            firebase.firestore.Timestamp.fromDate(customDate);
+        } else {
+          postData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        }
+        await db.collection("posts").add(postData);
+        alert(isDraft ? "Saved as draft!" : "Post published!");
+      }
+
+      this.resetForm();
+      await this.loadPosts();
+
+      if (!isDraft) {
+        this.showHome();
+      }
+    } catch (error) {
+      console.error("Error saving post:", error);
+      alert("Error saving post: " + error.message);
+    }
+  },
+
+  resetForm() {
+    document.getElementById("post-form").reset();
+    document.getElementById("edit-post-id").value = "";
+    document.getElementById("post-custom-date").value = "";
+  },
+
+  async loadManagePosts() {
+    const container = document.getElementById("manage-posts-list");
+
+    if (this.posts.length === 0) {
+      container.innerHTML =
+        '<div class="text-center text-gray-400 py-12">No published posts</div>';
+      return;
+    }
+
+    container.innerHTML = this.posts
+      .map((post) => {
+        const date = new Date(post.createdAt).toLocaleDateString();
+        return `
+                <div class="border border-gray-200 rounded-lg p-6 mb-4">
+                    <h3 class="text-xl font-semibold mb-2">${this.escapeHtml(post.title)}</h3>
+                    <div class="text-sm text-gray-500 mb-2">${date}</div>
+                    ${
+                      post.labels && post.labels.length > 0
+                        ? `
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            ${post.labels
+                              .map(
+                                (label) => `
+                                <span class="text-xs px-2 py-1 bg-gray-100 rounded">
+                                    ${this.escapeHtml(label)}
+                                </span>
+                            `,
+                              )
+                              .join("")}
+                        </div>
+                    `
+                        : ""
+                    }
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="app.editPost('${post.id}')" 
+                            class="text-sm text-blue-600 hover:underline">
+                            Edit
+                        </button>
+                        <button onclick="app.deletePost('${post.id}')" 
+                            class="text-sm text-red-600 hover:underline">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+      })
+      .join("");
+  },
+
+  async loadDrafts() {
+    const container = document.getElementById("drafts-list");
+
+    if (this.drafts.length === 0) {
+      container.innerHTML =
+        '<div class="text-center text-gray-400 py-12">No drafts</div>';
+      return;
+    }
+
+    container.innerHTML = this.drafts
+      .map((draft) => {
+        const date = new Date(draft.createdAt).toLocaleDateString();
+        return `
+                <div class="border border-gray-200 rounded-lg p-6 mb-4">
+                    <h3 class="text-xl font-semibold mb-2">${this.escapeHtml(draft.title)}</h3>
+                    <div class="text-sm text-gray-500 mb-2">${date}</div>
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="app.editPost('${draft.id}', true)" 
+                            class="text-sm text-blue-600 hover:underline">
+                            Edit
+                        </button>
+                        <button onclick="app.publishDraft('${draft.id}')" 
+                            class="text-sm text-green-600 hover:underline">
+                            Publish
+                        </button>
+                        <button onclick="app.deletePost('${draft.id}', true)" 
+                            class="text-sm text-red-600 hover:underline">
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            `;
+      })
+      .join("");
+  },
+
+  async editPost(postId, isDraft = false) {
+    const post = isDraft
+      ? this.drafts.find((p) => p.id === postId)
+      : this.posts.find((p) => p.id === postId);
+
+    if (!post) return;
+
+    document.getElementById("edit-post-id").value = postId;
+    document.getElementById("post-title").value = post.title;
+    document.getElementById("post-content").value = post.content;
+    document.getElementById("post-labels").value = post.labels
+      ? post.labels.join(", ")
+      : "";
+
+    // Set custom date field with existing post date
+    if (post.createdAt) {
+      const date = new Date(post.createdAt);
+      // Convert to local datetime string format (YYYY-MM-DDTHH:mm)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+      const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
+      document.getElementById("post-custom-date").value = dateTimeString;
+    }
+
+    this.switchAdminTab("new-post");
+    document.querySelectorAll(".admin-tab")[0].classList.add("active");
+    window.scrollTo(0, 0);
+  },
+
+  async deletePost(postId, isDraft = false) {
+    if (!confirm("Are you sure you want to delete this post?")) return;
+
+    try {
+      await db.collection("posts").doc(postId).delete();
+      await this.loadPosts();
+
+      if (isDraft) {
+        this.loadDrafts();
+      } else {
+        this.loadManagePosts();
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      alert("Error deleting post: " + error.message);
+    }
+  },
+
+  async publishDraft(draftId) {
+    if (!confirm("Publish this draft?")) return;
+
+    try {
+      await db.collection("posts").doc(draftId).update({
+        isDraft: false,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      await this.loadPosts();
+      this.loadDrafts();
+      alert("Draft published!");
+    } catch (error) {
+      console.error("Error publishing draft:", error);
+      alert("Error publishing draft: " + error.message);
+    }
+  },
+
+  async updateAdminStats() {
+    if (!this.currentUser) return;
+
+    const allLabels = new Set();
+    this.posts.forEach((post) => {
+      if (post.labels) {
+        post.labels.forEach((label) => allLabels.add(label));
+      }
+    });
+
+    document.getElementById("stat-posts").textContent = this.posts.length;
+    document.getElementById("stat-labels").textContent = allLabels.size;
+    document.getElementById("stat-drafts").textContent = this.drafts.length;
+  },
+
+  // ============================================
+  // UTILITY FUNCTIONS
+  // ============================================
+  truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substr(0, maxLength);
+  },
+
+  escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  },
+
+  formatContentForDisplay(content) {
+    // Split by lines, trim each line, remove empty leading/trailing lines
+    const lines = content.split("\n");
+    const trimmedLines = lines.map((line) => line.trim());
+
+    // Remove leading empty lines
+    while (trimmedLines.length > 0 && trimmedLines[0] === "") {
+      trimmedLines.shift();
+    }
+
+    // Remove trailing empty lines
+    while (
+      trimmedLines.length > 0 &&
+      trimmedLines[trimmedLines.length - 1] === ""
+    ) {
+      trimmedLines.pop();
+    }
+
+    // Join with <br> tags and escape HTML
+    return trimmedLines.map((line) => this.escapeHtml(line)).join("<br>");
+  },
+};
+
+// Initialize app when DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+  app.init();
 });
-
-// Helpful console notes
-console.log(
-  "READY: Open Firebase Console → Authentication → enable Email/Password → create user:",
-  "muktadir1280@gmail.com"
-);
-console.log(
-  "Firestore collections used: posts, drafts. Storage path: post_images/."
-);
