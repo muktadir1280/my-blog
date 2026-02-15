@@ -1,7 +1,6 @@
 // ============================================
 // FIREBASE CONFIGURATION
 // ============================================
-// IMPORTANT: Replace with your Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyAnqlWmB3YL4lqoy_YeE4mD3ELk-5sUW8Q",
   authDomain: "muktadir-s-personal-blog.firebaseapp.com",
@@ -27,6 +26,7 @@ const app = {
   currentFilter: null,
   currentFilterType: null, // 'label' or 'archive'
   currentPost: null,
+  unsubscribe: null, // To store the realtime listener
 
   // Pagination
   currentPage: 1,
@@ -37,68 +37,27 @@ const app = {
   // INITIALIZATION
   // ============================================
   init() {
-    // CRITICAL: Force logout on page load for security
-    // This prevents auto-login and ensures only manual login works
+    // Force logout first to ensure clean state
     this.forceLogout();
 
     // Setup auth listener
     this.setupAuthListener();
-
-    // Load posts with retry mechanism
-    this.loadPostsWithRetry();
 
     // Check hash route
     this.checkHashRoute();
 
     // Listen for hash changes
     window.addEventListener("hashchange", () => this.checkHashRoute());
+
+    // Start Realtime Listener (This fixes the loading issues)
+    this.setupPostsListener();
   },
 
   forceLogout() {
-    // Clear any existing Firebase Auth session
-    // This ensures no one is logged in by default
     const currentUser = auth.currentUser;
     if (currentUser) {
       console.log("🔒 Force logout: Clearing previous session");
       auth.signOut();
-    }
-  },
-
-  async loadPostsWithRetry(maxRetries = 3) {
-    console.log("📝 Starting to load posts...");
-
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(`Attempt ${attempt}/${maxRetries}...`);
-        await this.loadPosts();
-        console.log("✅ Posts loaded successfully!");
-        return; // Success - exit function
-      } catch (error) {
-        console.error(`❌ Attempt ${attempt} failed:`, error);
-
-        if (attempt === maxRetries) {
-          // All attempts failed - show error with retry button
-          console.error("Failed to load posts after all attempts");
-          const feed = document.getElementById("posts-feed");
-          if (feed) {
-            feed.innerHTML = `
-              <div class="text-center py-12">
-                <div class="text-red-600 font-semibold mb-4">⚠️ Failed to load posts</div>
-                <p class="text-gray-600 mb-4">Please check your internet connection</p>
-                <button onclick="app.loadPostsWithRetry()" 
-                  class="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors">
-                  🔄 Retry
-                </button>
-              </div>
-            `;
-          }
-        } else {
-          // Wait before next attempt (exponential backoff)
-          const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
-          console.log(`Waiting ${waitTime}ms before retry...`);
-          await new Promise((resolve) => setTimeout(resolve, waitTime));
-        }
-      }
     }
   },
 
@@ -111,7 +70,6 @@ const app = {
 
   setupAuthListener() {
     auth.onAuthStateChanged((user) => {
-      // Only update state, don't auto-restore sessions
       this.currentUser = user;
 
       if (user) {
@@ -122,9 +80,10 @@ const app = {
 
       this.updateAuthUI();
 
-      if (user) {
-        // Reload posts to show drafts for admin
-        this.loadPosts();
+      // When auth state changes, re-process the posts we already have
+      // to show/hide drafts correctly without needing to re-fetch
+      if (this.posts.length > 0 || this.drafts.length > 0) {
+        this.processSnapshots(this.lastSnapshot);
         this.updateAdminStats();
       }
     });
@@ -135,48 +94,29 @@ const app = {
     const mobileAuthSection = document.getElementById("mobile-auth-section");
 
     if (this.currentUser) {
-      const authButtons = `
-        <div class="flex items-center gap-4">
-          <button onclick="app.showAdminView()" 
-            class="text-sm text-gray-600 hover:text-gray-900 font-semibold">
-            Admin
-          </button>
-          <button onclick="app.logout()" 
-            class="text-sm text-gray-600 hover:text-gray-900">
-            Logout
-          </button>
-        </div>
-      `;
-      authSection.innerHTML = authButtons;
-
-      // Mobile version
-      mobileAuthSection.innerHTML = `
-        <div class="space-y-3">
-          <button onclick="app.showAdminView(); app.toggleMobileMenu();" 
-            class="w-full text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors">
-            Admin Dashboard
-          </button>
-          <button onclick="app.logout(); app.toggleMobileMenu();" 
-            class="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-            Logout
-          </button>
-        </div>
-      `;
-    } else {
+      // Desktop Auth UI
       authSection.innerHTML = `
-        <button onclick="app.openLoginModal()" 
-          class="text-sm text-gray-600 hover:text-gray-900">
-          Admin Login
-        </button>
-      `;
-
-      // Mobile version
+                <div class="flex items-center gap-4">
+                    <button onclick="app.showAdminView()" class="text-sm text-gray-600 hover:text-gray-900 font-semibold">Admin</button>
+                    <button onclick="app.logout()" class="text-sm text-gray-600 hover:text-gray-900">Logout</button>
+                </div>
+            `;
+      // Mobile Auth UI
       mobileAuthSection.innerHTML = `
-        <button onclick="app.openLoginModal(); app.toggleMobileMenu();" 
-          class="w-full text-left px-4 py-3 bg-gray-900 text-white hover:bg-gray-800 rounded-lg font-semibold transition-colors">
-          Admin Login
-        </button>
-      `;
+                <div class="space-y-3">
+                    <button onclick="app.showAdminView(); app.toggleMobileMenu();" class="w-full text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors">Admin Dashboard</button>
+                    <button onclick="app.logout(); app.toggleMobileMenu();" class="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">Logout</button>
+                </div>
+            `;
+    } else {
+      // Desktop Auth UI
+      authSection.innerHTML = `
+                <button onclick="app.openLoginModal()" class="text-sm text-gray-600 hover:text-gray-900">Admin Login</button>
+            `;
+      // Mobile Auth UI
+      mobileAuthSection.innerHTML = `
+                <button onclick="app.openLoginModal(); app.toggleMobileMenu();" class="w-full text-left px-4 py-3 bg-gray-900 text-white hover:bg-gray-800 rounded-lg font-semibold transition-colors">Admin Login</button>
+            `;
     }
   },
 
@@ -196,19 +136,13 @@ const app = {
 
   async login(event) {
     event.preventDefault();
-
     const email = document.getElementById("login-email").value;
     const password = document.getElementById("login-password").value;
     const errorDiv = document.getElementById("login-error");
 
     try {
-      // Set persistence to SESSION only (not LOCAL)
-      // This means login will NOT persist across browser sessions/tabs
       await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
-
-      // Now sign in
       await auth.signInWithEmailAndPassword(email, password);
-
       console.log("✅ Login successful");
       this.closeLoginModal();
       this.showAdminView();
@@ -221,88 +155,95 @@ const app = {
   },
 
   async logout() {
-    console.log("🚪 Logging out...");
     await auth.signOut();
     this.showHome();
     window.location.hash = "";
-    console.log("✅ Logged out successfully");
   },
 
   // ============================================
-  // DATA LOADING
+  // REALTIME DATA LOADING (FIXED)
   // ============================================
-  async loadPosts() {
-    try {
-      // Load ALL posts from Firebase (including old posts without isDraft field)
-      const postsSnapshot = await db
-        .collection("posts")
-        .orderBy("createdAt", "desc")
-        .get();
+  setupPostsListener() {
+    const feed = document.getElementById("posts-feed");
 
-      // Filter published posts - treat posts without isDraft field as published
-      this.posts = postsSnapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate(),
-        }))
-        .filter((post) => post.isDraft !== true); // Show posts that are NOT drafts (including old posts)
+    // Show loading state initially
+    if (this.posts.length === 0) {
+      feed.innerHTML =
+        '<div class="text-center text-gray-400 py-12"><p>Loading posts...</p></div>';
+    }
 
-      console.log(
-        `Loaded ${this.posts.length} published posts (including old posts)`,
+    // Unsubscribe from previous listener if exists
+    if (this.unsubscribe) {
+      this.unsubscribe();
+    }
+
+    // Start Realtime Listener using onSnapshot
+    // This automatically updates the UI whenever data changes
+    this.unsubscribe = db
+      .collection("posts")
+      .orderBy("createdAt", "desc")
+      .onSnapshot(
+        (snapshot) => {
+          this.lastSnapshot = snapshot; // Save for auth state changes
+          this.processSnapshots(snapshot);
+        },
+        (error) => {
+          console.error("Error loading posts:", error);
+
+          if (error.code === "failed-precondition") {
+            feed.innerHTML = `
+                        <div class="text-center py-12">
+                            <div class="text-red-600 font-semibold mb-2">⚠️ Database Index Required</div>
+                            <div class="text-gray-600 text-sm max-w-2xl mx-auto">
+                                <p>Please open the browser console and click the link from Firebase to create the index.</p>
+                            </div>
+                        </div>
+                    `;
+          } else {
+            feed.innerHTML = `
+                        <div class="text-center py-12 text-red-500">
+                            <p>Error loading posts. Please check your connection.</p>
+                            <button onclick="app.setupPostsListener()" class="mt-4 text-sm underline">Retry</button>
+                        </div>
+                    `;
+          }
+        },
       );
+  },
 
-      // Load drafts if admin
-      if (this.currentUser) {
-        this.drafts = postsSnapshot.docs
-          .map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-            createdAt: doc.data().createdAt?.toDate(),
-          }))
-          .filter((post) => post.isDraft === true);
+  processSnapshots(snapshot) {
+    if (!snapshot) return;
 
-        console.log(`Loaded ${this.drafts.length} drafts`);
-      }
+    // Process all docs
+    const allDocs = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+      createdAt: doc.data().createdAt?.toDate() || new Date(),
+    }));
 
-      this.renderPosts();
-      this.updateSidebar();
-      this.updateAdminStats();
-    } catch (error) {
-      console.error("Error loading posts:", error);
+    // Filter published posts (including old posts without isDraft field)
+    this.posts = allDocs.filter((post) => post.isDraft !== true);
 
-      // Show user-friendly error message
-      const feed = document.getElementById("posts-feed");
-      if (error.code === "failed-precondition") {
-        feed.innerHTML = `
-          <div class="text-center py-12">
-            <div class="text-red-600 font-semibold mb-2">⚠️ Database Index Required</div>
-            <div class="text-gray-600 text-sm max-w-2xl mx-auto">
-              <p class="mb-2">Firestore needs an index for this query.</p>
-              <p class="mb-3">Click the link in the browser console to create it, then refresh the page.</p>
-              <p class="text-xs text-gray-500">Or check the Firestore console → Indexes tab</p>
-            </div>
-          </div>
-        `;
-      } else if (error.code === "permission-denied") {
-        feed.innerHTML = `
-          <div class="text-center py-12">
-            <div class="text-red-600 font-semibold mb-2">🔒 Permission Denied</div>
-            <div class="text-gray-600 text-sm max-w-2xl mx-auto">
-              <p class="mb-2">Check your Firestore security rules.</p>
-              <p class="text-xs">Rules should allow public read access for the posts collection</p>
-            </div>
-          </div>
-        `;
-      } else {
-        feed.innerHTML = `
-          <div class="text-center py-12">
-            <div class="text-red-600 font-semibold mb-2">Error Loading Posts</div>
-            <div class="text-gray-600 text-sm">${error.message}</div>
-            <div class="text-xs text-gray-500 mt-2">Check browser console for details</div>
-          </div>
-        `;
-      }
+    // Filter drafts (only if admin)
+    if (this.currentUser) {
+      this.drafts = allDocs.filter((post) => post.isDraft === true);
+    } else {
+      this.drafts = [];
+    }
+
+    console.log(
+      `Loaded ${this.posts.length} posts and ${this.drafts.length} drafts`,
+    );
+
+    // Render everything
+    this.renderPosts();
+    this.updateSidebar();
+    this.updateAdminStats();
+
+    // If we are in admin view, refresh the lists there too
+    if (!document.getElementById("admin-view").classList.contains("hidden")) {
+      this.loadManagePosts();
+      this.loadDrafts();
     }
   },
 
@@ -328,44 +269,27 @@ const app = {
       }
     }
 
-    // Calculate pagination
+    // Pagination Logic
     this.totalPages = Math.ceil(postsToShow.length / this.postsPerPage);
     const startIndex = (this.currentPage - 1) * this.postsPerPage;
     const endIndex = startIndex + this.postsPerPage;
     const paginatedPosts = postsToShow.slice(startIndex, endIndex);
 
     if (postsToShow.length === 0) {
-      // Different message if filtering vs no posts at all
       if (this.currentFilter) {
-        feed.innerHTML = `
-          <div class="text-center text-gray-400 py-12">
-            <p>No posts found with this filter</p>
-          </div>
-        `;
+        feed.innerHTML =
+          '<div class="text-center text-gray-400 py-12"><p>No posts found with this filter</p></div>';
       } else if (this.posts.length === 0) {
-        // No posts exist at all - show welcome message
         feed.innerHTML = `
-          <div class="text-center py-12 max-w-2xl mx-auto">
-            <div class="text-6xl mb-4">📝</div>
-            <h2 class="text-2xl playfair font-bold text-gray-900 mb-3">Welcome to Muktadir's Diary!</h2>
-            <p class="text-gray-600 mb-6">Your blog is ready, but there are no posts yet.</p>
-            ${
-              this.currentUser
-                ? `
-              <p class="text-sm text-gray-500 mb-4">Click the "New Post" tab to create your first post!</p>
-            `
-                : `
-              <p class="text-sm text-gray-500">The admin needs to create some posts first.</p>
-            `
-            }
-          </div>
-        `;
+                    <div class="text-center py-12 max-w-2xl mx-auto">
+                        <div class="text-6xl mb-4">📝</div>
+                        <h2 class="text-2xl playfair font-bold text-gray-900 mb-3">Welcome to Muktadir's Diary!</h2>
+                        <p class="text-gray-600 mb-6">No posts yet.</p>
+                    </div>
+                `;
       } else {
-        feed.innerHTML = `
-          <div class="text-center text-gray-400 py-12">
-            <p>No posts found</p>
-          </div>
-        `;
+        feed.innerHTML =
+          '<div class="text-center text-gray-400 py-12"><p>No posts found</p></div>';
       }
       this.hidePagination();
       return;
@@ -373,13 +297,11 @@ const app = {
 
     feed.innerHTML = paginatedPosts
       .map((post) => {
-        const contentLength = post.content.length;
-        const showReadMore = contentLength > 500; // Show Read More if content > 500 characters
+        const contentLength = post.content ? post.content.length : 0;
+        const showReadMore = contentLength > 500;
         const preview = showReadMore
           ? this.truncateText(post.content, 500)
-          : post.content;
-
-        // Format content properly
+          : post.content || "";
         const formattedPreview = this.formatContentForDisplay(preview);
 
         const date = new Date(post.createdAt).toLocaleDateString("en-US", {
@@ -404,9 +326,7 @@ const app = {
                             ${post.labels
                               .map(
                                 (label) => `
-                                <span class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full">
-                                    ${this.escapeHtml(label)}
-                                </span>
+                                <span class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full">${this.escapeHtml(label)}</span>
                             `,
                               )
                               .join("")}
@@ -418,10 +338,7 @@ const app = {
                       showReadMore
                         ? `
                         <button class="text-sm font-semibold text-gray-900 hover:underline inline-flex items-center gap-1">
-                            Read More 
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                            </svg>
+                            Read More <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                         </button>
                     `
                         : ""
@@ -431,7 +348,6 @@ const app = {
       })
       .join("");
 
-    // Update pagination controls
     this.updatePagination(postsToShow.length);
   },
 
@@ -442,28 +358,12 @@ const app = {
     const pageInfo = document.getElementById("page-info");
 
     if (totalPosts <= this.postsPerPage) {
-      // Don't show pagination if all posts fit on one page
       this.hidePagination();
       return;
     }
-
     pagination.classList.remove("hidden");
-
-    // Show/hide Previous button (only show if not on first page)
-    if (this.currentPage > 1) {
-      prevButton.classList.remove("hidden");
-    } else {
-      prevButton.classList.add("hidden");
-    }
-
-    // Show/hide Next button
-    if (this.currentPage >= this.totalPages) {
-      nextButton.classList.add("hidden");
-    } else {
-      nextButton.classList.remove("hidden");
-    }
-
-    // Update page info
+    prevButton.classList.toggle("hidden", this.currentPage <= 1);
+    nextButton.classList.toggle("hidden", this.currentPage >= this.totalPages);
     pageInfo.textContent = `Page ${this.currentPage} of ${this.totalPages}`;
   },
 
@@ -510,9 +410,7 @@ const app = {
 
     document.getElementById("post-detail").innerHTML = `
             <article>
-                <h1 class="text-4xl sm:text-5xl playfair font-bold mb-4">
-                    ${this.escapeHtml(post.title)}
-                </h1>
+                <h1 class="text-4xl sm:text-5xl playfair font-bold mb-4">${this.escapeHtml(post.title)}</h1>
                 <div class="text-sm text-gray-500 mb-8">${date}</div>
                 ${
                   post.labels && post.labels.length > 0
@@ -521,9 +419,7 @@ const app = {
                         ${post.labels
                           .map(
                             (label) => `
-                            <span class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full">
-                                ${this.escapeHtml(label)}
-                            </span>
+                            <span class="text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full">${this.escapeHtml(label)}</span>
                         `,
                           )
                           .join("")}
@@ -536,7 +432,6 @@ const app = {
                 </div>
             </article>
         `;
-
     window.scrollTo(0, 0);
   },
 
@@ -545,14 +440,10 @@ const app = {
     document.getElementById("admin-view").classList.add("hidden");
     document.getElementById("posts-feed").classList.remove("hidden");
     document.getElementById("single-post").classList.add("hidden");
-
-    if (this.currentFilter) {
+    if (this.currentFilter)
       document.getElementById("filter-info").classList.remove("hidden");
-    }
 
-    // Re-render posts to show pagination buttons
     this.renderPosts();
-
     window.location.hash = "";
     this.currentPost = null;
   },
@@ -560,28 +451,22 @@ const app = {
   updateSidebar() {
     this.renderLabels();
     this.renderArchive();
-
-    // Also update mobile sidebar
     this.renderMobileLabels();
     this.renderMobileArchive();
   },
 
   toggleMobileMenu() {
-    const mobileSidebar = document.getElementById("mobile-sidebar");
-    mobileSidebar.classList.toggle("hidden");
+    document.getElementById("mobile-sidebar").classList.toggle("hidden");
   },
 
   renderLabels() {
     const labelsContainer = document.getElementById("labels-list");
     const allLabels = new Map();
-
-    // Count posts per label
     this.posts.forEach((post) => {
-      if (post.labels) {
-        post.labels.forEach((label) => {
-          allLabels.set(label, (allLabels.get(label) || 0) + 1);
-        });
-      }
+      if (post.labels)
+        post.labels.forEach((label) =>
+          allLabels.set(label, (allLabels.get(label) || 0) + 1),
+        );
     });
 
     if (allLabels.size === 0) {
@@ -606,8 +491,6 @@ const app = {
   renderArchive() {
     const archiveContainer = document.getElementById("archive-list");
     const monthCounts = new Map();
-
-    // Group posts by month/year
     this.posts.forEach((post) => {
       const date = new Date(post.createdAt);
       const monthYear = `${date.toLocaleString("default", { month: "long" })} ${date.getFullYear()}`;
@@ -635,14 +518,11 @@ const app = {
   renderMobileLabels() {
     const labelsContainer = document.getElementById("mobile-labels-list");
     const allLabels = new Map();
-
-    // Count posts per label
     this.posts.forEach((post) => {
-      if (post.labels) {
-        post.labels.forEach((label) => {
-          allLabels.set(label, (allLabels.get(label) || 0) + 1);
-        });
-      }
+      if (post.labels)
+        post.labels.forEach((label) =>
+          allLabels.set(label, (allLabels.get(label) || 0) + 1),
+        );
     });
 
     if (allLabels.size === 0) {
@@ -655,11 +535,11 @@ const app = {
       .sort((a, b) => b[1] - a[1])
       .map(
         ([label, count]) => `
-            <button onclick="app.filterByLabel('${this.escapeHtml(label)}'); app.toggleMobileMenu();" 
-                class="label-tag text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full ${this.currentFilter === label ? "active" : ""}">
-                ${this.escapeHtml(label)} (${count})
-            </button>
-        `,
+                <button onclick="app.filterByLabel('${this.escapeHtml(label)}'); app.toggleMobileMenu();" 
+                    class="label-tag text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full ${this.currentFilter === label ? "active" : ""}">
+                    ${this.escapeHtml(label)} (${count})
+                </button>
+            `,
       )
       .join("");
   },
@@ -667,8 +547,6 @@ const app = {
   renderMobileArchive() {
     const archiveContainer = document.getElementById("mobile-archive-list");
     const monthCounts = new Map();
-
-    // Group posts by month/year
     this.posts.forEach((post) => {
       const date = new Date(post.createdAt);
       const monthYear = `${date.toLocaleString("default", { month: "long" })} ${date.getFullYear()}`;
@@ -693,9 +571,6 @@ const app = {
       .join("");
   },
 
-  // ============================================
-  // FILTERING
-  // ============================================
   filterByLabel(label) {
     this.resetPagination();
     this.currentFilter = label;
@@ -740,7 +615,6 @@ const app = {
       this.openLoginModal();
       return;
     }
-
     document.getElementById("public-view").classList.add("hidden");
     document.getElementById("admin-view").classList.remove("hidden");
     this.switchAdminTab("new-post");
@@ -750,31 +624,23 @@ const app = {
   },
 
   switchAdminTab(tabName) {
-    // Update tab styles
-    document.querySelectorAll(".admin-tab").forEach((tab) => {
-      tab.classList.remove("active");
-    });
+    document
+      .querySelectorAll(".admin-tab")
+      .forEach((tab) => tab.classList.remove("active"));
     event.target.classList.add("active");
-
-    // Show/hide content
-    document.querySelectorAll(".admin-tab-content").forEach((content) => {
-      content.classList.add("hidden");
-    });
+    document
+      .querySelectorAll(".admin-tab-content")
+      .forEach((content) => content.classList.add("hidden"));
     document.getElementById(`tab-${tabName}`).classList.remove("hidden");
 
-    // Load data if needed
-    if (tabName === "manage-posts") {
-      this.loadManagePosts();
-    } else if (tabName === "drafts") {
-      this.loadDrafts();
-    }
+    if (tabName === "manage-posts") this.loadManagePosts();
+    else if (tabName === "drafts") this.loadDrafts();
   },
 
   async savePost(event, isDraft = false) {
     event.preventDefault();
-
     const title = document.getElementById("post-title").value.trim();
-    const content = document.getElementById("post-content").value; // Don't trim - preserve exact formatting
+    const content = document.getElementById("post-content").value;
     const labelsInput = document.getElementById("post-labels").value.trim();
     const labels = labelsInput
       ? labelsInput
@@ -795,8 +661,6 @@ const app = {
 
     try {
       if (editPostId) {
-        // Update existing post
-        // Only update createdAt if custom date is provided
         if (customDateInput) {
           const customDate = new Date(customDateInput);
           postData.createdAt =
@@ -805,8 +669,6 @@ const app = {
         await db.collection("posts").doc(editPostId).update(postData);
         alert(isDraft ? "Draft updated!" : "Post updated!");
       } else {
-        // Create new post
-        // Use custom date if provided, otherwise use server timestamp
         if (customDateInput) {
           const customDate = new Date(customDateInput);
           postData.createdAt =
@@ -818,12 +680,9 @@ const app = {
         alert(isDraft ? "Saved as draft!" : "Post published!");
       }
 
+      // No manual reload needed! onSnapshot will update the UI automatically.
       this.resetForm();
-      await this.loadPosts();
-
-      if (!isDraft) {
-        this.showHome();
-      }
+      if (!isDraft) this.showHome();
     } catch (error) {
       console.error("Error saving post:", error);
       alert("Error saving post: " + error.message);
@@ -836,9 +695,8 @@ const app = {
     document.getElementById("post-custom-date").value = "";
   },
 
-  async loadManagePosts() {
+  loadManagePosts() {
     const container = document.getElementById("manage-posts-list");
-
     if (this.posts.length === 0) {
       container.innerHTML =
         '<div class="text-center text-gray-400 py-12">No published posts</div>';
@@ -856,28 +714,14 @@ const app = {
                       post.labels && post.labels.length > 0
                         ? `
                         <div class="flex flex-wrap gap-2 mb-4">
-                            ${post.labels
-                              .map(
-                                (label) => `
-                                <span class="text-xs px-2 py-1 bg-gray-100 rounded">
-                                    ${this.escapeHtml(label)}
-                                </span>
-                            `,
-                              )
-                              .join("")}
+                            ${post.labels.map((label) => `<span class="text-xs px-2 py-1 bg-gray-100 rounded">${this.escapeHtml(label)}</span>`).join("")}
                         </div>
                     `
                         : ""
                     }
                     <div class="flex gap-3 mt-4">
-                        <button onclick="app.editPost('${post.id}')" 
-                            class="text-sm text-blue-600 hover:underline">
-                            Edit
-                        </button>
-                        <button onclick="app.deletePost('${post.id}')" 
-                            class="text-sm text-red-600 hover:underline">
-                            Delete
-                        </button>
+                        <button onclick="app.editPost('${post.id}')" class="text-sm text-blue-600 hover:underline">Edit</button>
+                        <button onclick="app.deletePost('${post.id}')" class="text-sm text-red-600 hover:underline">Delete</button>
                     </div>
                 </div>
             `;
@@ -885,9 +729,8 @@ const app = {
       .join("");
   },
 
-  async loadDrafts() {
+  loadDrafts() {
     const container = document.getElementById("drafts-list");
-
     if (this.drafts.length === 0) {
       container.innerHTML =
         '<div class="text-center text-gray-400 py-12">No drafts</div>';
@@ -902,18 +745,9 @@ const app = {
                     <h3 class="text-xl font-semibold mb-2">${this.escapeHtml(draft.title)}</h3>
                     <div class="text-sm text-gray-500 mb-2">${date}</div>
                     <div class="flex gap-3 mt-4">
-                        <button onclick="app.editPost('${draft.id}', true)" 
-                            class="text-sm text-blue-600 hover:underline">
-                            Edit
-                        </button>
-                        <button onclick="app.publishDraft('${draft.id}')" 
-                            class="text-sm text-green-600 hover:underline">
-                            Publish
-                        </button>
-                        <button onclick="app.deletePost('${draft.id}', true)" 
-                            class="text-sm text-red-600 hover:underline">
-                            Delete
-                        </button>
+                        <button onclick="app.editPost('${draft.id}', true)" class="text-sm text-blue-600 hover:underline">Edit</button>
+                        <button onclick="app.publishDraft('${draft.id}')" class="text-sm text-green-600 hover:underline">Publish</button>
+                        <button onclick="app.deletePost('${draft.id}', true)" class="text-sm text-red-600 hover:underline">Delete</button>
                     </div>
                 </div>
             `;
@@ -925,7 +759,6 @@ const app = {
     const post = isDraft
       ? this.drafts.find((p) => p.id === postId)
       : this.posts.find((p) => p.id === postId);
-
     if (!post) return;
 
     document.getElementById("edit-post-id").value = postId;
@@ -935,17 +768,15 @@ const app = {
       ? post.labels.join(", ")
       : "";
 
-    // Set custom date field with existing post date
     if (post.createdAt) {
       const date = new Date(post.createdAt);
-      // Convert to local datetime string format (YYYY-MM-DDTHH:mm)
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
       const hours = String(date.getHours()).padStart(2, "0");
       const minutes = String(date.getMinutes()).padStart(2, "0");
-      const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
-      document.getElementById("post-custom-date").value = dateTimeString;
+      document.getElementById("post-custom-date").value =
+        `${year}-${month}-${day}T${hours}:${minutes}`;
     }
 
     this.switchAdminTab("new-post");
@@ -955,16 +786,9 @@ const app = {
 
   async deletePost(postId, isDraft = false) {
     if (!confirm("Are you sure you want to delete this post?")) return;
-
     try {
       await db.collection("posts").doc(postId).delete();
-      await this.loadPosts();
-
-      if (isDraft) {
-        this.loadDrafts();
-      } else {
-        this.loadManagePosts();
-      }
+      // onSnapshot will automatically update UI
     } catch (error) {
       console.error("Error deleting post:", error);
       alert("Error deleting post: " + error.message);
@@ -973,16 +797,13 @@ const app = {
 
   async publishDraft(draftId) {
     if (!confirm("Publish this draft?")) return;
-
     try {
       await db.collection("posts").doc(draftId).update({
         isDraft: false,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
-
-      await this.loadPosts();
-      this.loadDrafts();
       alert("Draft published!");
+      // onSnapshot will automatically update UI
     } catch (error) {
       console.error("Error publishing draft:", error);
       alert("Error publishing draft: " + error.message);
@@ -991,57 +812,43 @@ const app = {
 
   async updateAdminStats() {
     if (!this.currentUser) return;
-
     const allLabels = new Set();
     this.posts.forEach((post) => {
-      if (post.labels) {
-        post.labels.forEach((label) => allLabels.add(label));
-      }
+      if (post.labels) post.labels.forEach((label) => allLabels.add(label));
     });
-
     document.getElementById("stat-posts").textContent = this.posts.length;
     document.getElementById("stat-labels").textContent = allLabels.size;
     document.getElementById("stat-drafts").textContent = this.drafts.length;
   },
 
-  // ============================================
-  // UTILITY FUNCTIONS
-  // ============================================
   truncateText(text, maxLength) {
+    if (!text) return "";
     if (text.length <= maxLength) return text;
     return text.substr(0, maxLength);
   },
 
   escapeHtml(text) {
+    if (!text) return "";
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
   },
 
   formatContentForDisplay(content) {
-    // Split by lines, trim each line, remove empty leading/trailing lines
+    if (!content) return "";
     const lines = content.split("\n");
     const trimmedLines = lines.map((line) => line.trim());
-
-    // Remove leading empty lines
-    while (trimmedLines.length > 0 && trimmedLines[0] === "") {
+    while (trimmedLines.length > 0 && trimmedLines[0] === "")
       trimmedLines.shift();
-    }
-
-    // Remove trailing empty lines
     while (
       trimmedLines.length > 0 &&
       trimmedLines[trimmedLines.length - 1] === ""
-    ) {
+    )
       trimmedLines.pop();
-    }
-
-    // Join with <br> tags and escape HTML
     return trimmedLines.map((line) => this.escapeHtml(line)).join("<br>");
   },
 };
 
-// Initialize app when DOM is ready
 document.addEventListener("DOMContentLoaded", () => {
   app.init();
 });
