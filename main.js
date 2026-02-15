@@ -94,22 +94,22 @@ const app = {
     const mobileAuthSection = document.getElementById("mobile-auth-section");
 
     if (this.currentUser) {
-      // Desktop Auth UI
+      // Desktop Auth UI - Show "Dashboard" and "Logout"
       authSection.innerHTML = `
                 <div class="flex items-center gap-4">
-                    <button onclick="app.showAdminView()" class="text-sm text-gray-600 hover:text-gray-900 font-semibold">Admin</button>
+                    <button onclick="app.showAdminView()" class="text-sm text-gray-600 hover:text-gray-900 font-semibold">Dashboard</button>
                     <button onclick="app.logout()" class="text-sm text-gray-600 hover:text-gray-900">Logout</button>
                 </div>
             `;
       // Mobile Auth UI
       mobileAuthSection.innerHTML = `
                 <div class="space-y-3">
-                    <button onclick="app.showAdminView(); app.toggleMobileMenu();" class="w-full text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors">Admin Dashboard</button>
+                    <button onclick="app.showAdminView(); app.toggleMobileMenu();" class="w-full text-left px-4 py-3 bg-gray-100 hover:bg-gray-200 rounded-lg font-semibold transition-colors">Dashboard</button>
                     <button onclick="app.logout(); app.toggleMobileMenu();" class="w-full text-left px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">Logout</button>
                 </div>
             `;
     } else {
-      // Desktop Auth UI
+      // Desktop Auth UI - Show "Admin Login"
       authSection.innerHTML = `
                 <button onclick="app.openLoginModal()" class="text-sm text-gray-600 hover:text-gray-900">Admin Login</button>
             `;
@@ -440,12 +440,17 @@ const app = {
     document.getElementById("admin-view").classList.add("hidden");
     document.getElementById("posts-feed").classList.remove("hidden");
     document.getElementById("single-post").classList.add("hidden");
-    if (this.currentFilter)
-      document.getElementById("filter-info").classList.remove("hidden");
+
+    // Reset to page 1 and clear all filters
+    this.currentPage = 1;
+    this.currentFilter = null;
+    this.currentFilterType = null;
+    document.getElementById("filter-info").classList.add("hidden");
 
     this.renderPosts();
     window.location.hash = "";
     this.currentPost = null;
+    window.scrollTo(0, 0);
   },
 
   updateSidebar() {
@@ -475,14 +480,15 @@ const app = {
       return;
     }
 
+    // Vertical layout like Archive
     labelsContainer.innerHTML = Array.from(allLabels.entries())
       .sort((a, b) => b[1] - a[1])
       .map(
         ([label, count]) => `
-                <button onclick="app.filterByLabel('${this.escapeHtml(label)}')" 
-                    class="label-tag text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full ${this.currentFilter === label ? "active" : ""}">
+                <div onclick="app.filterByLabel('${this.escapeHtml(label)}')" 
+                    class="archive-item cursor-pointer py-1 text-gray-700 hover:text-gray-900 ${this.currentFilter === label ? "active" : ""}">
                     ${this.escapeHtml(label)} (${count})
-                </button>
+                </div>
             `,
       )
       .join("");
@@ -531,14 +537,15 @@ const app = {
       return;
     }
 
+    // Vertical layout like Archive
     labelsContainer.innerHTML = Array.from(allLabels.entries())
       .sort((a, b) => b[1] - a[1])
       .map(
         ([label, count]) => `
-                <button onclick="app.filterByLabel('${this.escapeHtml(label)}'); app.toggleMobileMenu();" 
-                    class="label-tag text-xs px-3 py-1 bg-gray-100 text-gray-700 rounded-full ${this.currentFilter === label ? "active" : ""}">
+                <div onclick="app.filterByLabel('${this.escapeHtml(label)}'); app.toggleMobileMenu();" 
+                    class="archive-item cursor-pointer py-1 text-gray-700 hover:text-gray-900 ${this.currentFilter === label ? "active" : ""}">
                     ${this.escapeHtml(label)} (${count})
-                </button>
+                </div>
             `,
       )
       .join("");
